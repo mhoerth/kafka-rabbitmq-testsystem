@@ -35,7 +35,7 @@ var partitions []string
 // var repotchan chan string
 
 func main() {
-	messages = 10000
+	messages = 10
 	countprodcon = 2
 	brokers = []string{"127.0.0.1:9092"}
 	partitions = []string{"test1", "test2", "test3", "test4", "test5"}
@@ -53,7 +53,7 @@ func main() {
 
 	// <- finished
 	// go prodcon(2, messages, "test2", "test3", finished, finishedsending, finishedconsumtion)
-	go consumer(1, messages, "test3") //--> bei ID=3 gibt es Probleme ????
+	go consumer(1, messages, "test1") //--> bei ID=3 gibt es Probleme ????
 
 	// <-finished
 	// <-finishedprodcon
@@ -101,7 +101,7 @@ func configEnv(){
 	if contains(topics, "test1") == false{
 		err = admin.CreateTopic("test1", &sarama.TopicDetail{
 			NumPartitions:     60,
-			ReplicationFactor: 3,
+			ReplicationFactor: 1,
 		}, false)
 		if err != nil {
 			panic(err)
@@ -113,7 +113,7 @@ func configEnv(){
 	if contains(topics, "test2") == false{
 		err = admin.CreateTopic("test2", &sarama.TopicDetail{
 			NumPartitions:     60,
-			ReplicationFactor: 3,
+			ReplicationFactor: 1,
 		}, false)
 		if err != nil {
 			panic(err)
@@ -125,7 +125,7 @@ func configEnv(){
 	if contains(topics, "test3") == false{
 		err = admin.CreateTopic("test3", &sarama.TopicDetail{
 			NumPartitions:     60,
-			ReplicationFactor: 3,
+			ReplicationFactor: 1,
 		}, false)
 		if err != nil {
 			panic(err)
@@ -173,7 +173,6 @@ func producer(producerid int, messages int, targetTopic1 string) {
 
 	// Setup configuration
 	config := sarama.NewConfig()
-	// config.Timeout := --> malsehen ?!?!?
 
 	// Return specifies what channels will be populated.
 	// If they are set to true, you must read from
