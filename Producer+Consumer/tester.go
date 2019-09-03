@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -32,10 +33,15 @@ var countprodcon int
 var messages int
 var partitions []string
 
+var sendTime [10000]string
+var consendTime [6][10000]string
+var consumeTime [10000]string
+var completeTime time.Duration
+
 // var repotchan chan string
 
 func main() {
-	messages = 10000
+	messages = 10
 	countprodcon = 2
 	brokers = []string{"127.0.0.1:9092"}
 	partitions = []string{"test1", "test2", "test3", "test4", "test5"}
@@ -67,7 +73,58 @@ func main() {
 	close(finishedsending)
 	close(finishedconsumtion)
 	close(finishedprodcon)
+	
+	println("Writing CSV file")
+	// write file
+	
+	f, err := os.Create("testfile.csv")
+	if err != nil{
+		panic(err)
+	}
+	defer f.Close()
 
+	f.WriteString("Messagenumber;")
+	f.WriteString("ProducerSendTime;")
+	f.WriteString("Consumer&ProducerSendTime;")
+	f.WriteString("ConsumerTime;\n")
+	// for cp:=1; cp < countprodcon; cp++{
+	// 	for i:=0; i < messages; i++{
+	// 		// f.WriteString("ProducerSendTime: ")
+	// 		f.WriteString(sendTime[i])
+	// 		f.WriteString(";")
+
+	// 		// f.WriteString("Consumer&ProducerSendTime: ")
+	// 		f.WriteString(consendTime[cp][i])
+	// 		f.WriteString(";")
+
+	// 		// f.WriteString("ConsumerTime: ")
+	// 		f.WriteString(consumeTime[i])
+	// 		f.WriteString("; \n")
+	// 	}
+	// }
+
+	for i:=0; i < messages; i++{
+		// f.WriteString("ProducerSendTime: ")
+		f.WriteString("Message " + strconv.Itoa(i) + " ;")
+		f.WriteString(sendTime[i] + ";")
+		for cp:=1; cp <= countprodcon; cp++{
+			// f.WriteString("Consumer&ProducerSendTime: ")
+			// f.WriteString(";")
+			f.WriteString(consendTime[cp][i])
+			if(cp < countprodcon){
+				f.WriteString("; \n ; ;")
+			}else{
+				f.WriteString(";")
+			}
+		}
+		// f.WriteString("ConsumerTime: ")
+		f.WriteString(consumeTime[i])
+		f.WriteString("; \n")
+	}
+
+	f.WriteString("CompleteTimeDuration;")
+	f.WriteString(completeTime.String())
+	f.WriteString("; \n")
 	deleteConfigEnv()
 
 }
@@ -75,7 +132,10 @@ func main() {
 func configEnv(){
 	brokerAddrs := []string{"localhost:9092"}
     config := sarama.NewConfig()
-    config.Version = sarama.V2_1_0_0
+	config.Version = sarama.V2_1_0_0
+	config.Net.DialTimeout = (1*time.Hour)
+	config.Net.WriteTimeout = (1*time.Hour)
+	config.Admin.Timeout = (1*time.Hour)
 	admin, err := sarama.NewClusterAdmin(brokerAddrs, config)
 
     if err != nil {
@@ -101,7 +161,7 @@ func configEnv(){
 	if contains(topics, "test1") == false{
 		err = admin.CreateTopic("test1", &sarama.TopicDetail{
 			NumPartitions:     60,
-			ReplicationFactor: 3,
+			ReplicationFactor: 1,
 		}, false)
 		if err != nil {
 			panic(err)
@@ -113,7 +173,7 @@ func configEnv(){
 	if contains(topics, "test2") == false{
 		err = admin.CreateTopic("test2", &sarama.TopicDetail{
 			NumPartitions:     60,
-			ReplicationFactor: 3,
+			ReplicationFactor: 1,
 		}, false)
 		if err != nil {
 			panic(err)
@@ -125,7 +185,7 @@ func configEnv(){
 	if contains(topics, "test3") == false{
 		err = admin.CreateTopic("test3", &sarama.TopicDetail{
 			NumPartitions:     60,
-			ReplicationFactor: 3,
+			ReplicationFactor: 1,
 		}, false)
 		if err != nil {
 			panic(err)
@@ -138,7 +198,10 @@ func configEnv(){
 func deleteConfigEnv(){
 	brokerAddrs := []string{"localhost:9092"}
     config := sarama.NewConfig()
-    config.Version = sarama.V2_1_0_0
+	config.Version = sarama.V2_1_0_0
+	config.Net.DialTimeout = (1*time.Hour)
+	config.Net.WriteTimeout = (1*time.Hour)
+	config.Admin.Timeout = (1*time.Hour)
 	admin, err := sarama.NewClusterAdmin(brokerAddrs, config)
 
     if err != nil {
@@ -216,6 +279,7 @@ func producer(producerid int, messages int, targetTopic1 string) {
 		var testifleinput []byte
 		var jsonMsg MyInfo
 
+		messageStartTime := time.Now()
 		if testifleinput == nil {
 			testifleinput, err = ioutil.ReadFile("../output-1Kibi")
 			if err != nil {
@@ -256,6 +320,9 @@ func producer(producerid int, messages int, targetTopic1 string) {
 			println(partition)	
 		}
 
+		messageEndTime:= time.Since(messageStartTime) * time.Nanosecond
+		sendTime[i] = messageEndTime.String()
+		completeTime = completeTime + messageEndTime
 		// fmt.Printf("Message %d send to partition %d offset %d \n", i, partition, offset)
 
 	}
@@ -318,6 +385,7 @@ func consumer(consumerID int, messages int, targetTopic1 string) {
 	for i := 0; i < sendmessages; i++ {
 		// fmt.Print(" ... waiting for message ...")
 
+		messageStartTime := time.Now()
 		// read the message
 		msg := <-consumer.Messages()
 
@@ -336,6 +404,9 @@ func consumer(consumerID int, messages int, targetTopic1 string) {
 		// fmt.Print(jsonRecord)
 		// fmt.Println()
 
+		messageEndTime:= time.Since(messageStartTime) * time.Nanosecond
+		consumeTime[i] = messageEndTime.String()
+		completeTime = completeTime + messageEndTime
 	}
 	elapsed := time.Since(starttime)
 	fmt.Printf("Consumer: %d receives %d Messages -- elapsed time: %s \nAveragetime per message: %s \n", consumerID, sendmessages, elapsed, elapsed/time.Duration(sendmessages))
@@ -438,7 +509,7 @@ func prodcon(consumerID int, messages int, targetTopic1 string, targetTopic2 str
 
 	for i := 0; i < sendmessages; i++ {
 		// fmt.Print(" ... waiting for message ...")
-
+		messageStartTime := time.Now()
 		// read the message
 		msg := <-consumerinst.Messages()
 
@@ -504,6 +575,10 @@ func prodcon(consumerID int, messages int, targetTopic1 string, targetTopic2 str
 		// fmt.Print(jsonRecord.ScareMe)
 		// println()
 		// fmt.Println()
+
+		messageEndTime:= time.Since(messageStartTime) * time.Nanosecond
+		consendTime[consumerID][i] = messageEndTime.String()
+		completeTime = completeTime + messageEndTime
 
 	}
 	elapsed := time.Since(starttime)
