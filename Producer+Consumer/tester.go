@@ -36,12 +36,12 @@ var partitions []string
 var sendTime [10000]string
 var consendTime [6][10000]string
 var consumeTime [10000]string
-var completeTime time.Duration
+var completeTime float64
 
 // var repotchan chan string
 
 func main() {
-	messages = 10
+	messages = 10000
 	countprodcon = 2
 	brokers = []string{"127.0.0.1:9092"}
 	partitions = []string{"test1", "test2", "test3", "test4", "test5"}
@@ -105,14 +105,14 @@ func main() {
 
 	for i:=0; i < messages; i++{
 		// f.WriteString("ProducerSendTime: ")
-		f.WriteString("Message " + strconv.Itoa(i) + " ;")
+		f.WriteString(strconv.Itoa(i) + " ;") //Messagenumber
 		f.WriteString(sendTime[i] + ";")
 		for cp:=1; cp <= countprodcon; cp++{
 			// f.WriteString("Consumer&ProducerSendTime: ")
 			// f.WriteString(";")
 			f.WriteString(consendTime[cp][i])
 			if(cp < countprodcon){
-				f.WriteString("; \n ; ;")
+				f.WriteString("; \n"  + strconv.Itoa(i) +  "; ;")
 			}else{
 				f.WriteString(";")
 			}
@@ -123,7 +123,7 @@ func main() {
 	}
 
 	f.WriteString("CompleteTimeDuration;")
-	f.WriteString(completeTime.String())
+	f.WriteString(strconv.FormatFloat(completeTime, 'f', 6, 64))
 	f.WriteString("; \n")
 	deleteConfigEnv()
 
@@ -281,7 +281,7 @@ func producer(producerid int, messages int, targetTopic1 string) {
 
 		messageStartTime := time.Now()
 		if testifleinput == nil {
-			testifleinput, err = ioutil.ReadFile("../output-1Kibi")
+			testifleinput, err = ioutil.ReadFile("../output-500Kibi")
 			if err != nil {
 				fmt.Print(err)
 			}
@@ -305,6 +305,7 @@ func producer(producerid int, messages int, targetTopic1 string) {
 		partition, _, err := producer.SendMessage(msg)
 
 		if err != nil {
+			println(len(jsonString))
 			panic(err)
 		}
 
@@ -320,8 +321,8 @@ func producer(producerid int, messages int, targetTopic1 string) {
 			println(partition)	
 		}
 
-		messageEndTime:= time.Since(messageStartTime) * time.Nanosecond
-		sendTime[i] = messageEndTime.String()
+		messageEndTime:= time.Since(messageStartTime).Seconds()*1000
+		sendTime[i] = strconv.FormatFloat(messageEndTime, 'f', 6, 64)
 		completeTime = completeTime + messageEndTime
 		// fmt.Printf("Message %d send to partition %d offset %d \n", i, partition, offset)
 
@@ -404,8 +405,8 @@ func consumer(consumerID int, messages int, targetTopic1 string) {
 		// fmt.Print(jsonRecord)
 		// fmt.Println()
 
-		messageEndTime:= time.Since(messageStartTime) * time.Nanosecond
-		consumeTime[i] = messageEndTime.String()
+		messageEndTime:= time.Since(messageStartTime).Seconds()*1000
+		consumeTime[i] = strconv.FormatFloat(messageEndTime, 'f', 6, 64)
 		completeTime = completeTime + messageEndTime
 	}
 	elapsed := time.Since(starttime)
@@ -576,8 +577,8 @@ func prodcon(consumerID int, messages int, targetTopic1 string, targetTopic2 str
 		// println()
 		// fmt.Println()
 
-		messageEndTime:= time.Since(messageStartTime) * time.Nanosecond
-		consendTime[consumerID][i] = messageEndTime.String()
+		messageEndTime:= time.Since(messageStartTime).Seconds()*1000
+		consendTime[consumerID][i] = strconv.FormatFloat(messageEndTime, 'f', 6, 64)
 		completeTime = completeTime + messageEndTime
 
 	}

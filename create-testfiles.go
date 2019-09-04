@@ -9,8 +9,8 @@ import (
 )
 
 func main() {
-	size := int64(1 * 1024 * 1024)
-	fd, err := os.Create("output-1Mibi")
+	size := int64(500 * 1024)
+	fd, err := os.Create("output-500Kibi")
 	if err != nil {
 		log.Fatal("Failed to create output")
 	}
