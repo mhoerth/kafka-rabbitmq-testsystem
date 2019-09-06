@@ -1,0 +1,20 @@
+[]Consumergruppen für Kafka
+[]per cmd übergabeparameter den Test modifiezieren können
+[x]vordefinierte Nachrichten mit Zufallszahlen füllen anstatt mit Nullen
+[]RabbitMQ testfile so wie Kafka aufbauen
+[x]RabbitMQ Cluster bauen
+--> derzeit mit shellscript nach dem Start der Container
+[]
+[]
+[]
+[]
+[]
+
+
+Erkenntnisse:
+- RabbitMQ:
+- wenn die consume methode mehrfach in einer Schleife aufgerufen wird,
+benötigt das konsumeiren von NAchrichten ca. 1/3 mehr Zeit (wie ist es bei Kafka)
+--> mögliche Erklärung: mit der SChleife, muss immer wieder eine neue Verbindung
+zum Konsumieren der Nachrichten aufgebaut werden, ohne Schleife ließt der eine channel der erzeugt wird
+alle Nachrichten (Zeitersparnis durch weniger Aufwand in der channelerstellung)

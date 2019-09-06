@@ -281,7 +281,7 @@ func producer(producerid int, messages int, targetTopic1 string) {
 
 		messageStartTime := time.Now()
 		if testifleinput == nil {
-			testifleinput, err = ioutil.ReadFile("../output-500Kibi")
+			testifleinput, err = ioutil.ReadFile("../../output-500Kibi")
 			if err != nil {
 				fmt.Print(err)
 			}

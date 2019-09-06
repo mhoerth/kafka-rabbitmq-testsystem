@@ -6,19 +6,25 @@ package main
 import (
 	"log"
 	"os"
+	"math/rand"
 )
 
 func main() {
-	size := int64(500 * 1024)
-	fd, err := os.Create("output-500Kibi")
+
+	size := int64(10 * 1024)
+
+    token := make([]byte, size)
+    rand.Read(token)
+
+	fd, err := os.Create("output-500Kibi-rand")
 	if err != nil {
 		log.Fatal("Failed to create output")
 	}
-	_, err = fd.Seek(size-1, 0)
-	if err != nil {
-		log.Fatal("Failed to seek")
-	}
-	_, err = fd.Write([]byte{0})
+	// _, err = fd.Seek(size-1, 0)
+	// if err != nil {
+	// 	log.Fatal("Failed to seek")
+	// }
+	_, err = fd.Write(token)
 	if err != nil {
 		log.Fatal("Write failed")
 	}

@@ -59,14 +59,14 @@ func main() {
 	}
 
 starttime := time.Now()
-sendmessages := 100
+sendmessages := 1
 
 	for i:=0; i<=sendmessages; i++ {
 		var testifleinput []byte
 		var jsonMsg MyInfo
 
 		if testifleinput == nil {
-			testifleinput, err = ioutil.ReadFile("../output-100Kibi")
+			testifleinput, err = ioutil.ReadFile("../output-1Kibi-rand")
 			if err != nil {
 				fmt.Print(err)
 			}
