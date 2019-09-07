@@ -1,12 +1,12 @@
 []Consumergruppen für Kafka
 []per cmd übergabeparameter den Test modifiezieren können
 [x]vordefinierte Nachrichten mit Zufallszahlen füllen anstatt mit Nullen
-[]RabbitMQ testfile so wie Kafka aufbauen
+[x]RabbitMQ testfile so wie Kafka aufbauen
 [x]RabbitMQ Cluster bauen
 --> derzeit mit shellscript nach dem Start der Container
-[]
-[]
-[]
+[]json marshall aus der Zeitmessung entfernen (kafka)
+[]round trip time errechnen mit senden+empfangen+senden+empfangen
+[]Zeitmessung für RabbitMQ noch komoisch (Summenzeit aus Messungen länger als Programmlaufzeit)
 []
 []
 
