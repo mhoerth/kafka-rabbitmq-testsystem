@@ -33,14 +33,16 @@ var completeTime float64
 
 func main(){
 
-	messages = 10000
+	messages = 10
 	countprodcon = 2
 	starttime := time.Now()
 	starttime2 := time.Now().UnixNano()
-	go sender("hello")
-	go conprod(1, "hello", "hello2")
-	go conprod(2, "hello2", "hello3")
-	go consumer("hello3")
+	go sender("hello0")
+	// go conprod(1, "hello", "hello2")
+	// go conprod(2, "hello2", "hello3")
+	// go consumer("hello3")
+	go conprodstarter()
+	go consumer(("hello" + strconv.Itoa(countprodcon)))
 
 	<-finishedsending
 	<-finishedconsumtion
@@ -293,72 +295,84 @@ func conprod(consendID int,conQueueName string, prodQueueName string){
 
   i := 0
   for d := range msgs{
-	messageReceivedTime := time.Now().UnixNano()	// --> wenn die Zeit hier genommen wird, wird die Laufzeit der Forschleife mit eingerechnet
-	  if i < (messages){
-		  if i == 0{
-			log.Printf("Received a message: %s", d.CorrelationId)
-		  }
-		  log.Printf("CorrID of Message %d: %s", i, d.CorrelationId) 
-					// log.Printf("Received a message: %s", d.Body)
-					// println()
-					
-					var jsonRecord MyInfo
-					json.Unmarshal(d.Body, &jsonRecord)
-					// fmt.Println(jsonRecord.TheTime)
-
-					timevalue, err := strconv.ParseInt(jsonRecord.TheTime, 10, 64)
-					if err != nil {
-						log.Fatal("%s", err)
-					}
-					//   fmt.Println(timevalue)
+	  if d.MessageCount >=0{
+		messageReceivedTime := time.Now().UnixNano()	// --> wenn die Zeit hier genommen wird, wird die Laufzeit der Forschleife mit eingerechnet
+		if i < (messages){
+			if i == 0{
+			  log.Printf("Received a message: %s", d.CorrelationId)
+			}
+			log.Printf("ConProf %d received CorrID of Message %d: %s", consendID, i, d.CorrelationId) 
+					  // log.Printf("Received a message: %s", d.Body)
+					  // println()
 					  
-					//   currenttime:= int64(messageReceivedTime)
-					//   fmt.Println("Current Time: ",messageReceivedTime)
+					  var jsonRecord MyInfo
+					  json.Unmarshal(d.Body, &jsonRecord)
+					  // fmt.Println(jsonRecord.TheTime)
+  
+					  timevalue, err := strconv.ParseInt(jsonRecord.TheTime, 10, 64)
+					  if err != nil {
+						  log.Fatal("%s", err)
+					  }
+					  //   fmt.Println(timevalue)
+						
+					  //   currenttime:= int64(messageReceivedTime)
+					  //   fmt.Println("Current Time: ",messageReceivedTime)
+  
+					  duration:= messageReceivedTime - timevalue
+					  durationMs := float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
+  
+					  consendTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
+					   completeTime = completeTime + durationMs	 
+  
+					  fmt.Printf("Duration of Message: %d \n", duration)
+					  fmt.Printf("Duration of Message in ms: %f \n", durationMs)
+					  fmt.Printf("CompleteTime: %f \n", completeTime)
+					  println()
+  
+					  // sending message with timechange
+  
+						  // corrID := "myinfo2: " + strconv.Itoa(i)
+						  corrID := "myinfo" + strconv.Itoa(consendID) + ": " + strconv.Itoa(i)
+						  jsonRecord.TheTime = strconv.Itoa(int(time.Now().UnixNano()))
+						  jsonOutput, _ := json.Marshal(&jsonRecord)
+				  
+						  messageStartTime := time.Now()
+						  err = chP.Publish(
+							  "",     // exchange
+							  qp.Name, // routing key
+							  false,  // mandatory
+							  false,  // immediate
+							  amqp.Publishing {
+								ContentType: "text/plain",
+								CorrelationId: corrID,
+								Body:        []byte(jsonOutput),
+							  })
+							  
+							failOnError(err, "Failed to publish a message")
+				  
+							messageEndTime:= time.Since(messageStartTime).Seconds()*1000
+						  //   messageEndTimeTest := messageEndTime.Seconds()*1000
+						  //   sendTime[i] = strconv.FormatFloat(messageEndTime, 'f', 6, 64)
+							consendTime[consendID][i] = strconv.FormatFloat((durationMs + messageEndTime), 'f', 6, 64)
+							completeTime = completeTime + messageEndTime
+						  //   log.Printf("SendTime: %f", messageEndTime)
+						  //   log.Printf("SendTimeduration for recerving Message %d: %s", i, strconv.FormatFloat(messageEndTime, 'f', 6, 64))
+				  i = i+1
+		}
 
-					duration:= messageReceivedTime - timevalue
-					durationMs := float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
-
-					consendTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
-					 completeTime = completeTime + durationMs	 
-
-					fmt.Printf("Duration of Message: %d \n", duration)
-					fmt.Printf("Duration of Message in ms: %f \n", durationMs)
-					fmt.Printf("CompleteTime: %f \n", completeTime)
-					println()
-
-					// sending message with timechange
-
-						corrID := "myinfo2: " + strconv.Itoa(i)
-						jsonRecord.TheTime = strconv.Itoa(int(time.Now().UnixNano()))
-						jsonOutput, _ := json.Marshal(&jsonRecord)
-				
-						messageStartTime := time.Now()
-						err = chP.Publish(
-							"",     // exchange
-							qp.Name, // routing key
-							false,  // mandatory
-							false,  // immediate
-							amqp.Publishing {
-							  ContentType: "text/plain",
-							  CorrelationId: corrID,
-							  Body:        []byte(jsonOutput),
-							})
-							
-						  failOnError(err, "Failed to publish a message")
-				
-						  messageEndTime:= time.Since(messageStartTime).Seconds()*1000
-						//   messageEndTimeTest := messageEndTime.Seconds()*1000
-						//   sendTime[i] = strconv.FormatFloat(messageEndTime, 'f', 6, 64)
-						  consendTime[consendID][i] = strconv.FormatFloat((durationMs + messageEndTime), 'f', 6, 64)
-						  completeTime = completeTime + messageEndTime
-						//   log.Printf("SendTime: %f", messageEndTime)
-						//   log.Printf("SendTimeduration for recerving Message %d: %s", i, strconv.FormatFloat(messageEndTime, 'f', 6, 64))
-				i = i+1
-	  }
-	  if i == (messages){
-		  break
+		if i == (messages){
+			break
+		}
+  
 	  }
   }
+}
+
+func conprodstarter(){
+	queuetemp := "hello"
+	for i:=1; i <= countprodcon; i++{
+		go conprod(i, (queuetemp + strconv.Itoa(i-1)), (queuetemp + strconv.Itoa(i)))
+	}
 }
 
 func failOnError(err error, msg string) {
