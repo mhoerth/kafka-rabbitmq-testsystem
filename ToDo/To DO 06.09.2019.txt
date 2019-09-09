@@ -7,8 +7,8 @@
 []json marshall aus der Zeitmessung entfernen (kafka)
 []round trip time errechnen mit senden+empfangen+senden+empfangen
 []Zeitmessung für RabbitMQ noch komoisch (Summenzeit aus Messungen länger als Programmlaufzeit)
-[]
-[]
+[x]mehrere ConsumerProducer von Rabbit starten
+[]Kafka prodcon abstimmung und setzen der partition noch überarbeiten (derzeit fehlerhaft)
 
 
 Erkenntnisse:

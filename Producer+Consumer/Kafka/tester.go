@@ -41,29 +41,22 @@ var completeTime float64
 // var repotchan chan string
 
 func main() {
-	messages = 10000
-	countprodcon = 2
+	messages = 10
+	countprodcon = 3
 	brokers = []string{"127.0.0.1:9092"}
-	partitions = []string{"test1", "test2", "test3", "test4", "test5"}
+	// partitions = []string{"test1", "test2", "test3", "test4", "test5"}
 	// brokers = []string{"127.0.0.1:9001"}
 
 	configEnv()
 	starttime := time.Now()
-	go producer(1, messages, "test1")
+	go producer(1, messages, "test0", 1)
 
-	// for i:=1; i<countprodcon; i++{
-	// 	go prodcon(i, messages, partitions[i], partitions[i+1])
-	// 	// go prodcon(i, messages, "test2", "test3")
-	// }
 	go prodconStarter()
 
 	// <- finished
 	// go prodcon(2, messages, "test2", "test3", finished, finishedsending, finishedconsumtion)
-	go consumer(1, messages, "test3") //--> bei ID=3 gibt es Probleme ????
+	go consumer(1, messages, ("test" + strconv.Itoa(countprodcon)), 1) //--> bei ID=3 gibt es Probleme ????
 
-	// <-finished
-	// <-finishedprodcon
-	<-finishedsending
 	<-finishedconsumtion
 
 	elapsed := time.Since(starttime)
@@ -87,21 +80,6 @@ func main() {
 	f.WriteString("ProducerSendTime;")
 	f.WriteString("Consumer&ProducerSendTime;")
 	f.WriteString("ConsumerTime;\n")
-	// for cp:=1; cp < countprodcon; cp++{
-	// 	for i:=0; i < messages; i++{
-	// 		// f.WriteString("ProducerSendTime: ")
-	// 		f.WriteString(sendTime[i])
-	// 		f.WriteString(";")
-
-	// 		// f.WriteString("Consumer&ProducerSendTime: ")
-	// 		f.WriteString(consendTime[cp][i])
-	// 		f.WriteString(";")
-
-	// 		// f.WriteString("ConsumerTime: ")
-	// 		f.WriteString(consumeTime[i])
-	// 		f.WriteString("; \n")
-	// 	}
-	// }
 
 	for i:=0; i < messages; i++{
 		// f.WriteString("ProducerSendTime: ")
@@ -157,42 +135,20 @@ func configEnv(){
 
 	//get all topic from cluster
 	topics, _ := cluster.Topics()
-
-	if contains(topics, "test1") == false{
-		err = admin.CreateTopic("test1", &sarama.TopicDetail{
-			NumPartitions:     60,
-			ReplicationFactor: 1,
-		}, false)
-		if err != nil {
-			panic(err)
-		}else{
-			// println("Topic created!!!")
+	partitiontemp:= "test"
+		for i:=0; i<countprodcon; i++{
+			if contains(topics, (partitiontemp + strconv.Itoa(i))) == false{
+				err = admin.CreateTopic((partitiontemp + strconv.Itoa(i)), &sarama.TopicDetail{
+					NumPartitions:     60,
+					ReplicationFactor: 1,
+				}, false)
+				if err != nil {
+					panic(err)
+				}else{
+					// println("Topic created!!!")
+				}
+			}
 		}
-	}
-
-	if contains(topics, "test2") == false{
-		err = admin.CreateTopic("test2", &sarama.TopicDetail{
-			NumPartitions:     60,
-			ReplicationFactor: 1,
-		}, false)
-		if err != nil {
-			panic(err)
-		}else{
-			// println("Topic created!!!")
-		}
-	}
-
-	if contains(topics, "test3") == false{
-		err = admin.CreateTopic("test3", &sarama.TopicDetail{
-			NumPartitions:     60,
-			ReplicationFactor: 1,
-		}, false)
-		if err != nil {
-			panic(err)
-		}else{
-			// println("Topic created!!!")
-		}
-	}
 }
 
 func deleteConfigEnv(){
@@ -209,27 +165,16 @@ func deleteConfigEnv(){
 	}
 	defer func() { _ = admin.Close() }()
 
-	err = admin.DeleteTopic("test1")
-	if err != nil {
-		panic(err)
-	}else{
-		// println("Topic deleted!!!")
-	}
-	err = admin.DeleteTopic("test2")
-	if err != nil {
-		panic(err)
-	}else{
-		// println("Topic deleted!!!")
-	}
-	err = admin.DeleteTopic("test3")
-	if err != nil {
-		panic(err)
-	}else{
-		// println("Topic deleted!!!")
+	partitiontemp:= "test"
+	for i:=0; i<countprodcon; i++{
+			err = admin.DeleteTopic((partitiontemp + strconv.Itoa(i)))
+			if err != nil {
+				panic(err)
+			}
 	}
 }
 
-func producer(producerid int, messages int, targetTopic1 string) {
+func producer(producerid int, messages int, targetTopic1 string, targetPartition int32) {
 
 	fmt.Printf("Starting Producer %d \n", producerid)
 	//	segmenthelper.LogInit("experimental.kafka-producer", "experimental", "test")
@@ -252,6 +197,8 @@ func producer(producerid int, messages int, targetTopic1 string) {
 	//for batching ???
 	config.Producer.Flush.MaxMessages = 1
 
+	config.Producer.Partitioner = sarama.NewManualPartitioner //set the partition amnually siplyifes the test (no complex get and set partition!!!)
+
 	// brokers := []string{"127.0.0.1:9092"}
 
 	// create a producer
@@ -268,6 +215,7 @@ func producer(producerid int, messages int, targetTopic1 string) {
 
 	// my topic
 	topic := targetTopic1
+	partition := targetPartition
 
 	fmt.Printf("Start producer: %d by sending a creepy and scary message \n", producerid)
 
@@ -297,52 +245,32 @@ func producer(producerid int, messages int, targetTopic1 string) {
 			Topic: topic,
 			Key:   sarama.StringEncoder("myInfo"),
 			Value: sarama.StringEncoder(jsonString),
+			Partition: partition,
 		}
 
 		// fmt.Println("Sending Message : ")
 		// fmt.Println(msg)
 
-		partition, _, err := producer.SendMessage(msg)
+		partition, offset, err := producer.SendMessage(msg)
 
 		if err != nil {
 			println(len(jsonString))
 			panic(err)
 		}
 
-		if i < 1 {
-			if countprodcon >= producerid{
-				setPartitionID(producerid, partition)		
-				finished <- true
-			}else{
-				setPartitionConsumerID(producerid, partition)
-				finishedprodconend <- true
-			}
-			print("Producer sets partitionID: ")
-			println(partition)	
-		}
-
 		messageEndTime:= time.Since(messageStartTime).Seconds()*1000
 		sendTime[i] = strconv.FormatFloat(messageEndTime, 'f', 6, 64)
 		completeTime = completeTime + messageEndTime
-		// fmt.Printf("Message %d send to partition %d offset %d \n", i, partition, offset)
+		fmt.Printf("Message %d send to partition %d offset %d \n", i, partition, offset)
 
 	}
 	elapsed := time.Since(starttime)
 	fmt.Printf("Producer: %d send %d Messages -- elapsed time: %s \nAveragetime per message: %s \n", producerid, sendmessages, elapsed, elapsed/time.Duration(sendmessages))
-	finishedsending <- true
+	// finishedsending <- true
 	return
 }
 
-func consumer(consumerID int, messages int, targetTopic1 string) {
-	// for{
-	// 	println("Waiting for input on finishedprodcon")
-	// 	nachricht, _ := <-finishedprodcon
-	// 	if nachricht == true{
-	// 		println("leave routine in consumer")
-	// 		break
-	// 	}
-	// }
-	<-finishedprodconend
+func consumer(consumerID int, messages int, targetTopic1 string, targetPartition int32) {
 
 	fmt.Printf("Starting Consumer %d \n", consumerID)
 	// we create a configuration structure for our kafka sarama api
@@ -366,11 +294,7 @@ func consumer(consumerID int, messages int, targetTopic1 string) {
 
 	// the topic where we want to listen at
 	topic := targetTopic1
-
-	// get partition ID of producer
-	partition := getPartitionConsumerID(consumerID)
-	fmt.Printf("Consumer %d get this partition ID: ", consumerID)
-	println(partition)
+	partition := targetPartition
 
 	// create the consumer on all partitions
 	consumer, err := master.ConsumePartition(topic, partition, sarama.OffsetOldest) //impotant: partition needs to be the same, the producer pushes to
@@ -415,16 +339,9 @@ func consumer(consumerID int, messages int, targetTopic1 string) {
 	return
 }
 
-func prodcon(consumerID int, messages int, targetTopic1 string, targetTopic2 string) {
+func prodcon(consumerID int, messages int, targetTopic1 string, conPartition int32, targetTopic2 string, targetPartition int32) {
 	//contains producer and consumer functionality
 
-	fmt.Printf("Preparing to start ProdCon: %d \n", consumerID)
-	if consumerID == 1{
-		<-finished
-	}else{
-		println("lksdhfshfiuisefcmlksajdoishefiuge")
-		<- finishedprodcon
-	}
 	fmt.Printf("Starting Producer with Consumer %d \n", consumerID)
 	//	segmenthelper.LogInit("experimental.kafka-producer", "experimental", "test")
 
@@ -440,6 +357,8 @@ func prodcon(consumerID int, messages int, targetTopic1 string, targetTopic2 str
 
 	// The level of acknowledgement reliability needed from the broker.
 	configProducer.Producer.RequiredAcks = sarama.WaitForAll
+
+	configProducer.Producer.Partitioner = sarama.NewManualPartitioner //set the partition amnually siplyifes the test (no complex get and set partition!!!)
 
 	// for sync
 	configProducer.Producer.Return.Successes = true
@@ -483,18 +402,7 @@ func prodcon(consumerID int, messages int, targetTopic1 string, targetTopic2 str
 	// fmt.Printf("targetTopic1: %s \n", targetTopic1)
 
 	// get partition ID of producer
-	var partition int32
-	if consumerID > 1 {
-		partition = getPartitionID(consumerID-1)//-1 because of setting the partition ID in the process before (consumerID -1)
-		fmt.Printf("Consumer + Producer %d get this partition ID: ", consumerID)
-		println(partition)
-		fmt.Printf("Topic to consume for Consumer + Producer %d: %s \n", consumerID, targetTopic1)
-	}else{
-		partition = getPartitionID(consumerID)												
-		fmt.Printf("Consumer + Producer %d get this partition ID: ", consumerID)
-		println(partition)
-		fmt.Printf("Topic to consume for Consumer + Producer %d: %s \n", consumerID, targetTopic1)
-	}
+	partition := conPartition
 
 
 	// create the consumer on all partitions
@@ -537,6 +445,7 @@ func prodcon(consumerID int, messages int, targetTopic1 string, targetTopic2 str
 			Topic: targetTopic2,
 			Key:   sarama.StringEncoder("myInfo"),
 			Value: sarama.StringEncoder(jsonString),
+			Partition: targetPartition,
 		}
 
 		// fmt.Println("Sending Message : ")
@@ -548,34 +457,15 @@ func prodcon(consumerID int, messages int, targetTopic1 string, targetTopic2 str
 			panic(err)
 		}
 
-		if i < 1 {
-
-			println("fsijfdbiasflöeshufdisahduil")
-
-			// if countprodcon > consumerID {
-			// 	setPartitionID(consumerID, partition)
-			// 	finishedprodcon <- true
-			// }else{
-			// 	setPartitionConsumerID(consumerID, partition)
-			// 	finishedprodconend <- true
-			// }
-
-			if countprodcon == consumerID{
-				setPartitionConsumerID(1, partition)//currently the consumer is hardcoded in this case (there is only one consumer)
-				finishedprodconend <- true
-			}else{
-				finishedprodcon <- true
-			}
-
+		if i < 1{
 			fmt.Printf("Consumer + Producer %d sets partitionID: ", consumerID)
 			println(partition)
 			fmt.Printf("Consumer + Producer %d Topic to send: %s \n", consumerID, targetTopic2)
+		// }
 		}
 
 		// fmt.Printf("Consumer + Producer %d send modified myInfo: %d to topic: %s \n", consumerID, i, targetTopic2)
 		// fmt.Print(jsonRecord.ScareMe)
-		// println()
-		// fmt.Println()
 
 		messageEndTime:= time.Since(messageStartTime).Seconds()*1000
 		consendTime[consumerID][i] = strconv.FormatFloat(messageEndTime, 'f', 6, 64)
@@ -584,31 +474,16 @@ func prodcon(consumerID int, messages int, targetTopic1 string, targetTopic2 str
 	}
 	elapsed := time.Since(starttime)
 	fmt.Printf("Consumer + Producer: %d receives and sends %d Messages -- elapsed time: %s \nAveragetime per message: %s \n", consumerID, sendmessages, elapsed, elapsed/time.Duration(sendmessages))
-	// finishedsending <- true
 }
 
 func prodconStarter(){
-	for i:=1; i<=countprodcon; i++{
+	topictemp := "test"
+	for i:=1; i <= countprodcon; i++{
 		fmt.Printf("ProdCon %d in starting process \n", i)
-		go prodcon(i, messages, partitions[i-1], partitions[i])
-		// go prodcon(i, messages, "test2", "test3")
+		go prodcon(i, messages, (topictemp + strconv.Itoa(i-1)), 1, (topictemp + strconv.Itoa(i)), 1)
 	}
 }
 
-func getPartitionID(prodID int) int32 {
-	partition := idmap[prodID]
-	return partition
-}
-func getPartitionConsumerID(prodID int) int32 {
-	partition := idmapCon[prodID]
-	return partition
-}
-func setPartitionID(prodID int, partition int32) {
-	idmap[prodID] = partition
-}
-func setPartitionConsumerID(prodID int, partition int32) {
-	idmapCon[prodID] = partition
-}
 func contains(array []string, search string) bool{
 	for index := range array {
 		if array[index] == search{
