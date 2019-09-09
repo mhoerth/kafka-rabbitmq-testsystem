@@ -20,13 +20,8 @@ type MyInfo struct {
 }
 
 // var idmap map[int]int32
-var idmap = make(map[int]int32, 100)
-var idmapCon = make(map[int]int32, 100)
-var finished = make(chan bool, 10000)
 var finishedconsumtion = make(chan bool, 10000)
 var finishedsending = make(chan bool, 10000)
-var finishedprodcon = make(chan bool, 10000)
-var finishedprodconend = make(chan bool, 10000)
 var brokers []string
 var countprodcon int
 
@@ -62,10 +57,8 @@ func main() {
 	elapsed := time.Since(starttime)
 	fmt.Printf("Elapsed time for sending and consuming: %s \nAveragetime per message: %s \n", elapsed, elapsed/time.Duration(messages))
 
-	close(finished)
-	close(finishedsending)
+	// close(finishedsending)
 	close(finishedconsumtion)
-	close(finishedprodcon)
 	
 	println("Writing CSV file")
 	// write file
@@ -223,6 +216,9 @@ func producer(producerid int, messages int, targetTopic1 string, targetPartition
 
 	sendmessages := messages
 
+	fmt.Printf("Producer %d Topic to send: %s \n", producerid, targetTopic1)
+	fmt.Printf("Producer %d sets partitionID: %d \n", producerid, targetPartition)
+
 	for i := 0; i < sendmessages; i++ {
 		var testifleinput []byte
 		var jsonMsg MyInfo
@@ -251,7 +247,7 @@ func producer(producerid int, messages int, targetTopic1 string, targetPartition
 		// fmt.Println("Sending Message : ")
 		// fmt.Println(msg)
 
-		partition, offset, err := producer.SendMessage(msg)
+		_, _, err := producer.SendMessage(msg)
 
 		if err != nil {
 			println(len(jsonString))
@@ -261,7 +257,7 @@ func producer(producerid int, messages int, targetTopic1 string, targetPartition
 		messageEndTime:= time.Since(messageStartTime).Seconds()*1000
 		sendTime[i] = strconv.FormatFloat(messageEndTime, 'f', 6, 64)
 		completeTime = completeTime + messageEndTime
-		fmt.Printf("Message %d send to partition %d offset %d \n", i, partition, offset)
+		// fmt.Printf("Message %d send to partition %d offset %d \n", i, partition, offset)
 
 	}
 	elapsed := time.Since(starttime)
@@ -273,6 +269,8 @@ func producer(producerid int, messages int, targetTopic1 string, targetPartition
 func consumer(consumerID int, messages int, targetTopic1 string, targetPartition int32) {
 
 	fmt.Printf("Starting Consumer %d \n", consumerID)
+	fmt.Printf("Consumer %d Topic to consume: %s \n",consumerID, targetTopic1)
+	fmt.Printf("Consumer %d get partitionID: %d \n", consumerID, targetPartition)
 	// we create a configuration structure for our kafka sarama api
 	config := sarama.NewConfig()
 	config.Consumer.Return.Errors = true
@@ -343,6 +341,9 @@ func prodcon(consumerID int, messages int, targetTopic1 string, conPartition int
 	//contains producer and consumer functionality
 
 	fmt.Printf("Starting Producer with Consumer %d \n", consumerID)
+	fmt.Printf("Consumer + Producer %d Topic to consume: %s \n", consumerID, targetTopic1)
+	fmt.Printf("Consumer + Producer %d get partitionID: %d \n", consumerID, conPartition)
+
 	//	segmenthelper.LogInit("experimental.kafka-producer", "experimental", "test")
 
 	// Setup configuration
@@ -491,11 +492,4 @@ func contains(array []string, search string) bool{
 		}
 	}
 	return false
-}
-
-func test() {
-	fmt.Println("Testfunction")
-	// repotchan <- "Testfunction"
-
-	return
 }
