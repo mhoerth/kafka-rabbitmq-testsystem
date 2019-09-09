@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"strconv"
 	"time"
+	"log"
 
 	/*  "../../src/mdp/segmenthelper"
 	 */
@@ -37,7 +38,7 @@ var completeTime float64
 
 func main() {
 	messages = 10
-	countprodcon = 3
+	countprodcon = 2
 	brokers = []string{"127.0.0.1:9092"}
 	// partitions = []string{"test1", "test2", "test3", "test4", "test5"}
 	// brokers = []string{"127.0.0.1:9001"}
@@ -129,7 +130,7 @@ func configEnv(){
 	//get all topic from cluster
 	topics, _ := cluster.Topics()
 	partitiontemp:= "test"
-		for i:=0; i<countprodcon; i++{
+		for i:=0; i<=countprodcon; i++{
 			if contains(topics, (partitiontemp + strconv.Itoa(i))) == false{
 				err = admin.CreateTopic((partitiontemp + strconv.Itoa(i)), &sarama.TopicDetail{
 					NumPartitions:     60,
@@ -138,7 +139,7 @@ func configEnv(){
 				if err != nil {
 					panic(err)
 				}else{
-					// println("Topic created!!!")
+					fmt.Printf("Topic %s created!!! \n", (partitiontemp + strconv.Itoa(i)))
 				}
 			}
 		}
@@ -159,10 +160,12 @@ func deleteConfigEnv(){
 	defer func() { _ = admin.Close() }()
 
 	partitiontemp:= "test"
-	for i:=0; i<countprodcon; i++{
+	for i:=0; i<=countprodcon; i++{
 			err = admin.DeleteTopic((partitiontemp + strconv.Itoa(i)))
 			if err != nil {
 				panic(err)
+			}else{
+				fmt.Printf("Topic %s deleted!!! \n", (partitiontemp + strconv.Itoa(i)))
 			}
 	}
 }
@@ -219,20 +222,24 @@ func producer(producerid int, messages int, targetTopic1 string, targetPartition
 	fmt.Printf("Producer %d Topic to send: %s \n", producerid, targetTopic1)
 	fmt.Printf("Producer %d sets partitionID: %d \n", producerid, targetPartition)
 
+	var testifleinput []byte
+	var jsonMsg MyInfo
+
+	if testifleinput == nil {
+		testifleinput, err = ioutil.ReadFile("../../output-1Kibi-rand")
+		if err != nil {
+			fmt.Print(err)
+		}
+	}
+
+	jsonMsg.ScareMe = "Yes, please"
+	jsonMsg.Binaryfile = testifleinput
+
 	for i := 0; i < sendmessages; i++ {
-		var testifleinput []byte
-		var jsonMsg MyInfo
 
 		messageStartTime := time.Now()
-		if testifleinput == nil {
-			testifleinput, err = ioutil.ReadFile("../../output-500Kibi")
-			if err != nil {
-				fmt.Print(err)
-			}
-		}
-		jsonMsg.TheTime = strconv.Itoa(int(time.Now().Unix()))
-		jsonMsg.ScareMe = "Yes, please"
-		jsonMsg.Binaryfile = testifleinput
+
+		jsonMsg.TheTime = strconv.Itoa(int(time.Now().UnixNano()))
 
 		jsonOutput, _ := json.Marshal(&jsonMsg)
 		jsonString := (string)(jsonOutput)
@@ -305,12 +312,12 @@ func consumer(consumerID int, messages int, targetTopic1 string, targetPartition
 	sendmessages := messages
 	starttime := time.Now()
 
+	// read the message
+	msg := <-consumer.Messages()
+
 	for i := 0; i < sendmessages; i++ {
 		// fmt.Print(" ... waiting for message ...")
-
-		messageStartTime := time.Now()
-		// read the message
-		msg := <-consumer.Messages()
+		messageReceivedTime := time.Now().UnixNano()	// --> wenn die Zeit hier genommen wird, wird die Laufzeit der Forschleife mit eingerechnet
 
 		keyString := string(msg.Key)
 
@@ -320,16 +327,26 @@ func consumer(consumerID int, messages int, targetTopic1 string, targetPartition
 		}
 
 		var jsonRecord MyInfo
-
 		json.Unmarshal(msg.Value, &jsonRecord)
+
+		timevalue, err := strconv.ParseInt(jsonRecord.TheTime, 10, 64)
+		if err != nil {
+			log.Fatal("%s", err)
+		}
+
+		duration:= messageReceivedTime - timevalue
+		durationMs := float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
+
+		consumeTime[i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
+		completeTime = completeTime + durationMs	 
 
 		// fmt.Printf("got myInfo: %d \n", i)
 		// fmt.Print(jsonRecord)
 		// fmt.Println()
 
-		messageEndTime:= time.Since(messageStartTime).Seconds()*1000
-		consumeTime[i] = strconv.FormatFloat(messageEndTime, 'f', 6, 64)
-		completeTime = completeTime + messageEndTime
+		// messageEndTime:= time.Since(messageStartTime).Seconds()*1000
+		// consumeTime[i] = strconv.FormatFloat(messageEndTime, 'f', 6, 64)
+		// completeTime = completeTime + messageEndTime
 	}
 	elapsed := time.Since(starttime)
 	fmt.Printf("Consumer: %d receives %d Messages -- elapsed time: %s \nAveragetime per message: %s \n", consumerID, sendmessages, elapsed, elapsed/time.Duration(sendmessages))
@@ -337,12 +354,12 @@ func consumer(consumerID int, messages int, targetTopic1 string, targetPartition
 	return
 }
 
-func prodcon(consumerID int, messages int, targetTopic1 string, conPartition int32, targetTopic2 string, targetPartition int32) {
+func prodcon(consendID int, messages int, targetTopic1 string, conPartition int32, targetTopic2 string, targetPartition int32) {
 	//contains producer and consumer functionality
 
-	fmt.Printf("Starting Producer with Consumer %d \n", consumerID)
-	fmt.Printf("Consumer + Producer %d Topic to consume: %s \n", consumerID, targetTopic1)
-	fmt.Printf("Consumer + Producer %d get partitionID: %d \n", consumerID, conPartition)
+	fmt.Printf("Starting Producer with Consumer %d \n", consendID)
+	fmt.Printf("Consumer + Producer %d Topic to consume: %s \n", consendID, targetTopic1)
+	fmt.Printf("Consumer + Producer %d get partitionID: %d \n", consendID, conPartition)
 
 	//	segmenthelper.LogInit("experimental.kafka-producer", "experimental", "test")
 
@@ -412,16 +429,17 @@ func prodcon(consumerID int, messages int, targetTopic1 string, conPartition int
 		panic(err)
 	}
 
-	fmt.Printf("Start consumer + producer: %d listening to some messages ... please send me something ... \n", consumerID)
+	fmt.Printf("Start consumer + producer: %d listening to some messages ... please send me something ... \n", consendID)
 	// endless loop, until someone kills me
 	sendmessages := messages
 	starttime := time.Now()
 
+	// read the message
+	msg := <-consumerinst.Messages()
+
 	for i := 0; i < sendmessages; i++ {
 		// fmt.Print(" ... waiting for message ...")
-		messageStartTime := time.Now()
-		// read the message
-		msg := <-consumerinst.Messages()
+		messageReceivedTime := time.Now().UnixNano()	// --> wenn die Zeit hier genommen wird, wird die Laufzeit der Forschleife mit eingerechnet
 
 		keyString := string(msg.Key)
 
@@ -434,10 +452,22 @@ func prodcon(consumerID int, messages int, targetTopic1 string, conPartition int
 
 		json.Unmarshal(msg.Value, &jsonRecord)
 
+		timevalue, err := strconv.ParseInt(jsonRecord.TheTime, 10, 64)
+		if err != nil {
+			log.Fatal("%s", err)
+		}
+
+		duration:= messageReceivedTime - timevalue
+		durationMs := float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
+
+		consendTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
+		completeTime = completeTime + durationMs	 
+
+
 		// fmt.Printf("got myInfo number %d on consumer + producer %d \n", i, consumerID)
 
-		jsonRecord.ScareMe = jsonRecord.ScareMe + strconv.Itoa(consumerID)
-		jsonRecord.TheTime = strconv.Itoa(int(time.Now().Unix()))
+		jsonRecord.ScareMe = jsonRecord.ScareMe + strconv.Itoa(consendID)
+		jsonRecord.TheTime = strconv.Itoa(int(time.Now().UnixNano()))
 
 		jsonOutput, _ := json.Marshal(jsonRecord)
 		jsonString := (string)(jsonOutput)
@@ -451,6 +481,7 @@ func prodcon(consumerID int, messages int, targetTopic1 string, conPartition int
 
 		// fmt.Println("Sending Message : ")
 		// fmt.Println(msg)
+		messageStartTime := time.Now()
 
 		partition, _, err := producerInst.SendMessage(msgout)
 
@@ -458,23 +489,27 @@ func prodcon(consumerID int, messages int, targetTopic1 string, conPartition int
 			panic(err)
 		}
 
+		messageEndTime:= time.Since(messageStartTime).Seconds()*1000
+		consendTime[consendID][i] = strconv.FormatFloat((durationMs + messageEndTime), 'f', 6, 64)
+		completeTime = completeTime + messageEndTime
+
 		if i < 1{
-			fmt.Printf("Consumer + Producer %d sets partitionID: ", consumerID)
+			fmt.Printf("Consumer + Producer %d sets partitionID: ", consendID)
 			println(partition)
-			fmt.Printf("Consumer + Producer %d Topic to send: %s \n", consumerID, targetTopic2)
+			fmt.Printf("Consumer + Producer %d Topic to send: %s \n", consendID, targetTopic2)
 		// }
 		}
 
 		// fmt.Printf("Consumer + Producer %d send modified myInfo: %d to topic: %s \n", consumerID, i, targetTopic2)
 		// fmt.Print(jsonRecord.ScareMe)
 
-		messageEndTime:= time.Since(messageStartTime).Seconds()*1000
-		consendTime[consumerID][i] = strconv.FormatFloat(messageEndTime, 'f', 6, 64)
-		completeTime = completeTime + messageEndTime
+		// messageEndTime:= time.Since(messageStartTime).Seconds()*1000
+		// consendTime[consendID][i] = strconv.FormatFloat(messageEndTime, 'f', 6, 64)
+		// completeTime = completeTime + messageEndTime
 
 	}
 	elapsed := time.Since(starttime)
-	fmt.Printf("Consumer + Producer: %d receives and sends %d Messages -- elapsed time: %s \nAveragetime per message: %s \n", consumerID, sendmessages, elapsed, elapsed/time.Duration(sendmessages))
+	fmt.Printf("Consumer + Producer: %d receives and sends %d Messages -- elapsed time: %s \nAveragetime per message: %s \n", consendID, sendmessages, elapsed, elapsed/time.Duration(sendmessages))
 }
 
 func prodconStarter(){
