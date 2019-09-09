@@ -37,21 +37,46 @@ var completeTime float64
 // var repotchan chan string
 
 func main() {
+	topictemp := "test"
 	messages = 10
 	countprodcon = 2
+
+	// fill commandline parameters in programm variables
+	for i:=0; i < len(os.Args); i++{
+		fmt.Printf("%d : %s \n", i, os.Args[i])
+
+		if i == 1{
+			messagesCMD, err := strconv.ParseInt(os.Args[i], 10,64)
+			if err != nil {
+				log.Fatal("%s", err)
+			}
+			messages = int(messagesCMD)
+		}
+		if i == 2{
+			topictemp = os.Args[i]
+		}
+		if i == 3{
+			countprodconCMD, err := strconv.ParseInt(os.Args[i], 10, 64)
+			if err != nil {
+				log.Fatal("%s", err)
+			}
+			countprodcon = int(countprodconCMD)
+		}
+	}
+	
 	brokers = []string{"127.0.0.1:9092"}
 	// partitions = []string{"test1", "test2", "test3", "test4", "test5"}
 	// brokers = []string{"127.0.0.1:9001"}
 
-	configEnv()
+	configEnv(topictemp)
 	starttime := time.Now()
-	go producer(1, messages, "test0", 1)
+	go producer(1, messages, (topictemp + strconv.Itoa(0)), 1)
 
-	go prodconStarter()
+	go prodconStarter(topictemp)
 
 	// <- finished
 	// go prodcon(2, messages, "test2", "test3", finished, finishedsending, finishedconsumtion)
-	go consumer(1, messages, ("test" + strconv.Itoa(countprodcon)), 1) //--> bei ID=3 gibt es Probleme ????
+	go consumer(1, messages, (topictemp + strconv.Itoa(countprodcon)), 1) //--> bei ID=3 gibt es Probleme ????
 
 	<-finishedconsumtion
 
@@ -97,11 +122,11 @@ func main() {
 	f.WriteString("CompleteTimeDuration;")
 	f.WriteString(strconv.FormatFloat(completeTime, 'f', 6, 64))
 	f.WriteString("; \n")
-	deleteConfigEnv()
+	deleteConfigEnv(topictemp)
 
 }
 
-func configEnv(){
+func configEnv(topictemplate string){
 	brokerAddrs := []string{"localhost:9092"}
     config := sarama.NewConfig()
 	config.Version = sarama.V2_1_0_0
@@ -129,7 +154,7 @@ func configEnv(){
 
 	//get all topic from cluster
 	topics, _ := cluster.Topics()
-	partitiontemp:= "test"
+	partitiontemp:= topictemplate
 		for i:=0; i<=countprodcon; i++{
 			if contains(topics, (partitiontemp + strconv.Itoa(i))) == false{
 				err = admin.CreateTopic((partitiontemp + strconv.Itoa(i)), &sarama.TopicDetail{
@@ -145,7 +170,7 @@ func configEnv(){
 		}
 }
 
-func deleteConfigEnv(){
+func deleteConfigEnv(topictemplate string){
 	brokerAddrs := []string{"localhost:9092"}
     config := sarama.NewConfig()
 	config.Version = sarama.V2_1_0_0
@@ -159,7 +184,7 @@ func deleteConfigEnv(){
 	}
 	defer func() { _ = admin.Close() }()
 
-	partitiontemp:= "test"
+	partitiontemp:= topictemplate
 	for i:=0; i<=countprodcon; i++{
 			err = admin.DeleteTopic((partitiontemp + strconv.Itoa(i)))
 			if err != nil {
@@ -512,8 +537,8 @@ func prodcon(consendID int, messages int, targetTopic1 string, conPartition int3
 	fmt.Printf("Consumer + Producer: %d receives and sends %d Messages -- elapsed time: %s \nAveragetime per message: %s \n", consendID, sendmessages, elapsed, elapsed/time.Duration(sendmessages))
 }
 
-func prodconStarter(){
-	topictemp := "test"
+func prodconStarter(topictemplate string){
+	topictemp := topictemplate
 	for i:=1; i <= countprodcon; i++{
 		fmt.Printf("ProdCon %d in starting process \n", i)
 		go prodcon(i, messages, (topictemp + strconv.Itoa(i-1)), 1, (topictemp + strconv.Itoa(i)), 1)
