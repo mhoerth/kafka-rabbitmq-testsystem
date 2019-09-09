@@ -35,22 +35,47 @@ func main(){
 
 	messages = 10
 	countprodcon = 2
+	queuetemp := "hello"
+
+		// fill commandline parameters in programm variables
+		for i:=0; i < len(os.Args); i++{
+			fmt.Printf("%d : %s \n", i, os.Args[i])
+	
+			if i == 1{
+				messagesCMD, err := strconv.ParseInt(os.Args[i], 10,64)
+				if err != nil {
+					log.Fatal("%s", err)
+				}
+				messages = int(messagesCMD)
+			}
+			if i == 2{
+				queuetemp = os.Args[i]
+			}
+			if i == 3{
+				countprodconCMD, err := strconv.ParseInt(os.Args[i], 10, 64)
+				if err != nil {
+					log.Fatal("%s", err)
+				}
+				countprodcon = int(countprodconCMD)
+			}
+		}	
+
 	starttime := time.Now()
-	starttime2 := time.Now().UnixNano()
-	go sender("hello0")
+	// starttime2 := time.Now().UnixNano()
+	go sender((queuetemp + strconv.Itoa(0)))
 	// go conprod(1, "hello", "hello2")
 	// go conprod(2, "hello2", "hello3")
 	// go consumer("hello3")
-	go conprodstarter()
-	go consumer(("hello" + strconv.Itoa(countprodcon)))
+	go conprodstarter(queuetemp)
+	go consumer((queuetemp + strconv.Itoa(countprodcon)))
 
 	<-finishedsending
 	<-finishedconsumtion
 
 	elapsed := time.Since(starttime)
-	endtime := float64((time.Now().UnixNano() - starttime2)) / float64(1000000)
+	// endtime := float64((time.Now().UnixNano() - starttime2)) / float64(1000000)
 	fmt.Printf("Elapsed time for sending and consuming: %s \nAveragetime per message: %s \n", elapsed, elapsed/time.Duration(messages))
-	fmt.Printf("Time gerechnet: %f \n", endtime)
+	// fmt.Printf("Time gerechnet: %f \n", endtime)
 
 	close(finishedsending)
 	close(finishedconsumtion)
@@ -301,8 +326,8 @@ func conprod(consendID int,conQueueName string, prodQueueName string){
 			if i == 0{
 			  log.Printf("Received a message: %s", d.CorrelationId)
 			}
-			log.Printf("ConProf %d received CorrID of Message %d: %s", consendID, i, d.CorrelationId) 
-					  // log.Printf("Received a message: %s", d.Body)
+			log.Printf("ConProd %d received CorrID of Message %d: %s", consendID, i, d.CorrelationId) 
+					//   log.Printf("Received a message: %s", d.Body)
 					  // println()
 					  
 					  var jsonRecord MyInfo
@@ -368,8 +393,8 @@ func conprod(consendID int,conQueueName string, prodQueueName string){
   }
 }
 
-func conprodstarter(){
-	queuetemp := "hello"
+func conprodstarter(queuetmplate string){
+	queuetemp := queuetmplate
 	for i:=1; i <= countprodcon; i++{
 		go conprod(i, (queuetemp + strconv.Itoa(i-1)), (queuetemp + strconv.Itoa(i)))
 	}
