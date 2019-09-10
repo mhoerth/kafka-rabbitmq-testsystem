@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"os"
 	"encoding/json"
 	"fmt"
@@ -23,6 +24,7 @@ type MyInfo struct {
 // var idmap map[int]int32
 var finishedconsumtion = make(chan bool, 10000)
 var finishedsending = make(chan bool, 10000)
+var finishedgroup = make(chan bool, 10000)
 var brokers []string
 var countprodcon int
 
@@ -33,13 +35,15 @@ var sendTime [10000]string
 var consendTime [6][10000]string
 var consumeTime [10000]string
 var completeTime float64
+var sessionStarttime int64
 
 // var repotchan chan string
+var testing int
 
 func main() {
 	topictemp := "test"
 	messages = 10
-	countprodcon = 2
+	countprodcon = 0
 
 	// fill commandline parameters in programm variables
 	for i:=0; i < len(os.Args); i++{
@@ -71,13 +75,13 @@ func main() {
 	configEnv(topictemp)
 	starttime := time.Now()
 	go producer(1, messages, (topictemp + strconv.Itoa(0)), 1)
-
-	go prodconStarter(topictemp)
+	// go consumergroup(1, (topictemp + strconv.Itoa(0)))
+	// go prodconStarter(topictemp)
 
 	// <- finished
 	// go prodcon(2, messages, "test2", "test3", finished, finishedsending, finishedconsumtion)
 	go consumer(1, messages, (topictemp + strconv.Itoa(countprodcon)), 1) //--> bei ID=3 gibt es Probleme ????
-
+	<-finishedsending
 	<-finishedconsumtion
 
 	elapsed := time.Since(starttime)
@@ -259,6 +263,7 @@ func producer(producerid int, messages int, targetTopic1 string, targetPartition
 
 	jsonMsg.ScareMe = "Yes, please"
 	jsonMsg.Binaryfile = testifleinput
+	sessionStarttime = time.Now().UnixNano()
 
 	for i := 0; i < sendmessages; i++ {
 
@@ -294,7 +299,7 @@ func producer(producerid int, messages int, targetTopic1 string, targetPartition
 	}
 	elapsed := time.Since(starttime)
 	fmt.Printf("Producer: %d send %d Messages -- elapsed time: %s \nAveragetime per message: %s \n", producerid, sendmessages, elapsed, elapsed/time.Duration(sendmessages))
-	// finishedsending <- true
+	finishedsending <- true
 	return
 }
 
@@ -375,6 +380,149 @@ func consumer(consumerID int, messages int, targetTopic1 string, targetPartition
 	}
 	elapsed := time.Since(starttime)
 	fmt.Printf("Consumer: %d receives %d Messages -- elapsed time: %s \nAveragetime per message: %s \n", consumerID, sendmessages, elapsed, elapsed/time.Duration(sendmessages))
+	finishedconsumtion <- true
+	return
+}
+// consumergroup test
+type exampleConsumerGroupHandler struct{}
+
+func (exampleConsumerGroupHandler) Setup(_ sarama.ConsumerGroupSession) error   { return nil }
+func (exampleConsumerGroupHandler) Cleanup(_ sarama.ConsumerGroupSession) error { return nil }
+func (h exampleConsumerGroupHandler) ConsumeClaim(sess sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
+	// wird für jede partition in den angegebenen Topic asl seperate go routine gestartet !!!!!
+	// fmt.Printf("claming partition %d .... \n", testing)
+	// testing = testing + 1
+
+		i:=0
+		var jsonRecord MyInfo
+
+	for msg := range claim.Messages() {
+		if i < (messages){
+		// fmt.Printf("Counter in partition go routine %d: %d \n", testing, i)
+		fmt.Printf("Message topic:%q partition:%d offset:%d\n", msg.Topic, msg.Partition, msg.Offset)
+		sess.MarkMessage(msg, "")
+
+			messageReceivedTime := time.Now().UnixNano()	// --> wenn die Zeit hier genommen wird, wird die Laufzeit der Forschleife mit eingerechnet
+
+		// 	keyString := string(msg.Key)
+
+		// 	if keyString != "myInfo" {
+		// 		fmt.Println("received key is not myInfo ... sorry ... message ignore")
+		// 		continue
+		// 	}
+
+			json.Unmarshal(msg.Value, &jsonRecord)
+
+			timevalue, err := strconv.ParseInt(jsonRecord.TheTime, 10, 64)
+			if err != nil {
+				log.Fatal("%s", err)
+			}
+
+			duration:= messageReceivedTime - timevalue
+			durationMs := float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
+
+			consumeTime[i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
+			println(durationMs)
+			completeTime = completeTime + durationMs
+			println(completeTime) 
+
+		// 	// fmt.Printf("got myInfo: %d \n", i)
+		// 	// fmt.Print(jsonRecord)
+		// 	// fmt.Println()
+
+		// 	// messageEndTime:= time.Since(messageStartTime).Seconds()*1000
+		// 	// consumeTime[i] = strconv.FormatFloat(messageEndTime, 'f', 6, 64)
+		// 	// completeTime = completeTime + messageEndTime
+		// }
+		i = i+1
+		}
+		if i == messages {
+			break
+		}
+
+	}
+	// finishedgroup <- true
+	return nil
+}
+
+func consumergroup(consumerID int, targetTopic1 string) {
+	// <- finishedsending
+	assignor := "roundrobin"
+	// the topic where we want to listen at
+	topic := targetTopic1
+
+	fmt.Printf("Starting Consumergroup %d \n", consumerID)
+	fmt.Printf("Consumergroup %d Topic to consume: %s \n",consumerID, targetTopic1)
+
+// define group
+	kfversion, err := sarama.ParseKafkaVersion("0.12.0.2") // kafkaVersion is the version of kafka server like 0.11.0.2
+	if err != nil {
+		log.Println(err)
+	}
+	
+	config := sarama.NewConfig()
+	config.Version = kfversion
+	config.Consumer.Return.Errors = true
+	config.Consumer.Offsets.Initial = sarama.OffsetOldest
+
+	switch assignor {
+	case "roundrobin":
+		config.Consumer.Group.Rebalance.Strategy = sarama.BalanceStrategyRoundRobin
+	case "range":
+		config.Consumer.Group.Rebalance.Strategy = sarama.BalanceStrategyRange
+	default:
+		log.Panicf("Unrecognized consumer group partition assignor: %s", assignor)
+	}
+	
+	// Start with a client
+	client, err := sarama.NewClient(brokers, config)
+	if err != nil {
+		log.Println(err)
+	}
+	defer func() { _ = client.Close() }()
+
+// Start a new consumer group
+group, err := sarama.NewConsumerGroupFromClient("test-group6", client)
+if err != nil {
+    log.Println(err)
+}
+defer func() { _ = group.Close() }()
+
+	// Track errors
+	go func() {
+		for err := range group.Errors() {
+			fmt.Println("ERROR", err)
+		}
+	}()
+
+// Iterate over consumer sessions.
+ctx := context.Background()
+sendmessages := messages
+fmt.Printf("Start consumergroup: %d listening to some messages ... please send me something ... \n", consumerID)
+
+starttime := time.Now()
+
+// for {
+		println("Message will be claimed")
+		topics := []string{topic}
+		handler := exampleConsumerGroupHandler{}
+		err2 := group.Consume(ctx, topics, handler) //startet eine seperate go routine für jede Partition (über alle topics hinweg)
+		if err2 != nil {
+			log.Println(err)
+		}
+
+	// println("Message claimed but not printed !!!")
+// }
+	elapsed := time.Since(starttime)
+	// compute complete time
+	// correct the complete time --> complete time for sending and receiving != sum(sendtime + receivetime of all messages)
+	sessionEndtime := time.Now().UnixNano()
+	sessionEndtimeMS := float64(sessionEndtime) / float64(1000000) //Nanosekunden in Milisekunden
+	sessionStarttimeMS := float64(sessionStarttime) / float64(1000000) //Nanosekunden in Milisekunden
+	duration := sessionEndtimeMS - sessionStarttimeMS
+	completeTime = duration
+
+	fmt.Printf("Consumergroup: %d receives %d Messages -- elapsed time: %s \nAveragetime per message: %s \n", consumerID, sendmessages, elapsed, elapsed/time.Duration(sendmessages))
 	finishedconsumtion <- true
 	return
 }

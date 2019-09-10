@@ -1,14 +1,22 @@
-[]Consumergruppen für Kafka
-[]per cmd übergabeparameter den Test modifiezieren können
+[x]Consumergruppen für Kafka
+--> erste Implementierung funktioniert!!!
+[x]per cmd übergabeparameter den Test modifiezieren können
 [x]vordefinierte Nachrichten mit Zufallszahlen füllen anstatt mit Nullen
 [x]RabbitMQ testfile so wie Kafka aufbauen
 [x]RabbitMQ Cluster bauen
 --> derzeit mit shellscript nach dem Start der Container
-[]json marshall aus der Zeitmessung entfernen (kafka)
+[x]json marshall aus der Zeitmessung entfernen (kafka)
 []round trip time errechnen mit senden+empfangen+senden+empfangen
 []Zeitmessung für RabbitMQ noch komoisch (Summenzeit aus Messungen länger als Programmlaufzeit)
+[]Zeitmessung bei Kafka ebenfalls komisch
+--> mögliche Erklärung: man nimmt die Zeit in jeder Nachricht und vergleicht diese mit der aktuellen Zeit
+--> dadurch kommt es zu dem Fehler, dass wenn Nachrichten Zeitgleich ankommen,
+dass beide Nachrichten gleich lange benötigt haben, aber der Gesammtprozess hat nicht so lange benötigt,
+wie die Summe der Zeiten der einzelnen Nachrichten !!!
+
 [x]mehrere ConsumerProducer von Rabbit starten
-[]Kafka prodcon abstimmung und setzen der partition noch überarbeiten (derzeit fehlerhaft)
+[x]Kafka prodcon abstimmung und setzen der partition noch überarbeiten (derzeit fehlerhaft)
+[]linkedIn avro library für test einbauen
 
 
 Erkenntnisse:
