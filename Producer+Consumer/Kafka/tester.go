@@ -1,6 +1,7 @@
 package main
 
 import (
+	// "encoding/binary"
 	"context"
 	"os"
 	"encoding/json"
@@ -10,16 +11,26 @@ import (
 	"time"
 	"log"
 
+	// "bufio"
+	"bytes"
+	// "encoding/gob"
+
 	/*  "../../src/mdp/segmenthelper"
 	 */
 	"github.com/Shopify/sarama"
+	"github.com/linkedin/goavro"
 )
 
 type MyInfo struct {
 	TheTime    string `json:"theTime"`
-	ScareMe    string `json:"scare"`
-	Binaryfile []byte `json:"binary"`
+	ScareMe    string `json:"scareme"`
+	Binaryfile []byte `json:"binaryfile"`
 }
+// type MyInfo2 struct {
+// 	Binaryfile []byte `json:"binary"`
+// 	ScareMe    string `json:"scare"`
+// 	TheTime    string `json:"theTime"`
+// }
 
 // var idmap map[int]int32
 var finishedconsumtion = make(chan bool, 10000)
@@ -39,11 +50,18 @@ var sessionStarttime int64
 
 // var repotchan chan string
 var testing int
+// var m map[[]byte][string][string] interface{}
+
+// for avro
+const loginEventAvroSchema = `{"type": "record", "name": "LoginEvent", "fields": [{"name": "TheTime", "type": "string"}, {"name": "ScareMe", "type": "string"}, {"name": "Binaryfile", "type": "bytes"}]}`
+var compressionType string
 
 func main() {
 	topictemp := "test"
-	messages = 10
+	messages = 1
 	countprodcon = 0
+	compressionType = ""
+	// avro test
 
 	// fill commandline parameters in programm variables
 	for i:=0; i < len(os.Args); i++{
@@ -66,17 +84,19 @@ func main() {
 			}
 			countprodcon = int(countprodconCMD)
 		}
+		if i == 4{
+			compressionType = os.Args[i]
+		}
 	}
 	
 	brokers = []string{"127.0.0.1:9092"}
 	// partitions = []string{"test1", "test2", "test3", "test4", "test5"}
 	// brokers = []string{"127.0.0.1:9001"}
-
 	configEnv(topictemp)
 	starttime := time.Now()
 	go producer(1, messages, (topictemp + strconv.Itoa(0)), 1)
 	// go consumergroup(1, (topictemp + strconv.Itoa(0)))
-	// go prodconStarter(topictemp)
+	go prodconStarter(topictemp)
 
 	// <- finished
 	// go prodcon(2, messages, "test2", "test3", finished, finishedsending, finishedconsumtion)
@@ -264,15 +284,30 @@ func producer(producerid int, messages int, targetTopic1 string, targetPartition
 	jsonMsg.ScareMe = "Yes, please"
 	jsonMsg.Binaryfile = testifleinput
 	sessionStarttime = time.Now().UnixNano()
+	jsonString := ""
 
 	for i := 0; i < sendmessages; i++ {
 
-		messageStartTime := time.Now()
-
 		jsonMsg.TheTime = strconv.Itoa(int(time.Now().UnixNano()))
 
-		jsonOutput, _ := json.Marshal(&jsonMsg)
-		jsonString := (string)(jsonOutput)
+		// select compression / message format
+		switch compressionType {
+		case "":
+			jsonOutput, _ := json.Marshal(&jsonMsg)
+			jsonString = (string)(jsonOutput)
+			// println(jsonString)
+
+		case "avro":
+			jsonOutput := encodeAvro(jsonMsg.TheTime, jsonMsg.ScareMe, jsonMsg.Binaryfile)
+			jsonString = (string)(jsonOutput)
+		default:
+			jsonOutput, _ := json.Marshal(&jsonMsg)
+			jsonString = (string)(jsonOutput)
+			// println(jsonString)
+
+		}
+// send message
+messageStartTime := time.Now()
 
 		msg := &sarama.ProducerMessage{
 			Topic: topic,
@@ -342,11 +377,14 @@ func consumer(consumerID int, messages int, targetTopic1 string, targetPartition
 	sendmessages := messages
 	starttime := time.Now()
 
-	// read the message
-	msg := <-consumer.Messages()
+	// // read the message
+	// msg := <-consumer.Messages() // --> steht diese Funktion hier, wird anscheinend nur eine einzige Nachricht komsumiert !!!
 
 	for i := 0; i < sendmessages; i++ {
 		// fmt.Print(" ... waiting for message ...")
+			// read the message
+	msg := <-consumer.Messages() //--> muss diese funktion immer wieder aufgerufen werden, oder consumiert sie alle Nachrichten (wie ist es bei RabbitMQ???)
+
 		messageReceivedTime := time.Now().UnixNano()	// --> wenn die Zeit hier genommen wird, wird die Laufzeit der Forschleife mit eingerechnet
 
 		keyString := string(msg.Key)
@@ -357,7 +395,15 @@ func consumer(consumerID int, messages int, targetTopic1 string, targetPartition
 		}
 
 		var jsonRecord MyInfo
-		json.Unmarshal(msg.Value, &jsonRecord)
+		// check compressionType
+		switch compressionType {
+		case "":
+			println(string(msg.Value))// --> falche Zeiten kommen hier bereits an !!!!!
+			json.Unmarshal(msg.Value, &jsonRecord)
+		case "avro":
+			println(string(msg.Value)) // --> falche Zeiten kommen hier bereits an !!!!!
+			jsonRecord = decodeAvro(msg.Value)
+		}
 
 		timevalue, err := strconv.ParseInt(jsonRecord.TheTime, 10, 64)
 		if err != nil {
@@ -527,7 +573,7 @@ starttime := time.Now()
 	return
 }
 
-func prodcon(consendID int, messages int, targetTopic1 string, conPartition int32, targetTopic2 string, targetPartition int32) {
+func prodcon(consendID int, messages int, targetTopic1 string, conPartition int32, targetTopic2 string, targetPartition int32, compressionType string) {
 	//contains producer and consumer functionality
 
 	fmt.Printf("Starting Producer with Consumer %d \n", consendID)
@@ -622,8 +668,13 @@ func prodcon(consendID int, messages int, targetTopic1 string, conPartition int3
 		}
 
 		var jsonRecord MyInfo
-
-		json.Unmarshal(msg.Value, &jsonRecord)
+		// check compressionType
+		switch compressionType {
+		case "":
+			json.Unmarshal(msg.Value, &jsonRecord)
+		case "avro":
+			jsonRecord = decodeAvro(msg.Value)
+		}
 
 		timevalue, err := strconv.ParseInt(jsonRecord.TheTime, 10, 64)
 		if err != nil {
@@ -642,8 +693,20 @@ func prodcon(consendID int, messages int, targetTopic1 string, conPartition int3
 		jsonRecord.ScareMe = jsonRecord.ScareMe + strconv.Itoa(consendID)
 		jsonRecord.TheTime = strconv.Itoa(int(time.Now().UnixNano()))
 
-		jsonOutput, _ := json.Marshal(jsonRecord)
-		jsonString := (string)(jsonOutput)
+		jsonString := ""
+
+		// select compression / message format
+		switch compressionType {
+		case "":
+			jsonOutput, _ := json.Marshal(&jsonRecord)
+			jsonString = (string)(jsonOutput)	
+		case "avro":
+			jsonOutput := encodeAvro(jsonRecord.TheTime, jsonRecord.ScareMe, jsonRecord.Binaryfile)
+			jsonString = (string)(jsonOutput)
+		default:
+			jsonOutput, _ := json.Marshal(&jsonRecord)
+			jsonString = (string)(jsonOutput)	
+		}
 
 		msgout := &sarama.ProducerMessage{
 			Topic: targetTopic2,
@@ -689,7 +752,7 @@ func prodconStarter(topictemplate string){
 	topictemp := topictemplate
 	for i:=1; i <= countprodcon; i++{
 		fmt.Printf("ProdCon %d in starting process \n", i)
-		go prodcon(i, messages, (topictemp + strconv.Itoa(i-1)), 1, (topictemp + strconv.Itoa(i)), 1)
+		go prodcon(i, messages, (topictemp + strconv.Itoa(i-1)), 1, (topictemp + strconv.Itoa(i)), 1, compressionType)
 	}
 }
 
@@ -700,4 +763,121 @@ func contains(array []string, search string) bool{
 		}
 	}
 	return false
+}
+
+func encodeAvro(theTime string, scareMe string, binary []byte) []byte{
+	// println("avro compression starting....")
+    var b bytes.Buffer
+    // foo := bufio.NewWriter(&b)
+
+	codec, err := goavro.NewCodec(loginEventAvroSchema)
+	if err != nil {
+		panic(err)
+	}
+
+	var values []map[string] interface{}
+	// values = append(values, m)
+	// values = append(values, map[string] interface{}{"TheTime": "643573245", "ScareMe": "scareMe", "Binaryfile": []byte{0, 1, 2, 4, 5}})
+	// values = append(values, map[string] interface{}{"TheTime": "657987654", "ScareMe": "scareMe", "Binaryfile": []byte{0, 1, 2, 4, 5}})
+	values = append(values, map[string] interface{}{"TheTime": theTime, "ScareMe": scareMe, "Binaryfile": binary})
+
+	// f, err := os.Create("event.avro")
+	// if err != nil {
+	// 	panic(err)
+	// }
+
+	// test json vor codierung
+	// var jsonMsg MyInfo
+
+	ocfw, err := goavro.NewOCFWriter(goavro.OCFConfig{
+		W:     &b,
+		Codec: codec,
+	})
+	if err != nil {
+		panic(err)
+	}
+	// println(values)
+	// println("Appending bytes")
+	ocfw.Append(values)
+	// if err = ocfw.Append(values); err != nil {
+	// 	panic(err)
+	// }
+
+	bytearray:= b.Bytes()
+	// control printout
+	// println(b.Cap())
+
+	// s := string(bytearray)
+	// fmt.Println(s)
+
+
+	// decode this shit to verify
+	// var d bytes.Buffer
+	// ocfr, err := goavro.NewOCFReader(&b)
+
+	// var decoded interface{}
+	// println(ocfr.Scan())
+
+	// for ocfr.Scan(){
+	// 		decoded, err = ocfr.Read()
+	// 		if err != nil {
+	// 			fmt.Fprintf(os.Stderr, "%s\n", err)
+	// 		}
+	// 		// s := string(decoded)
+	// 		// fmt.Println(s)
+	// 		fmt.Println(decoded)
+	// 		// fmt.Printf("Test mit Printf: %v \n", decoded)
+	// }
+
+	// jsontest, err := json.Marshal(decoded)
+	// if err != nil{
+	// 	log.Fatal(err)
+	// }
+	// println(string(jsontest))
+	// json.Unmarshal(jsontest, &jsonMsg)
+	// // json.Unmarshal(jsontest, &jsonMsg2)
+
+	// // fmt.Printf("Myinfo1: %s \n", jsonMsg)
+	// fmt.Printf("Time: %s \n", jsonMsg.TheTime)
+	// fmt.Printf("ScareMe: %s \n", jsonMsg.ScareMe)
+	// fmt.Printf("Binary: %s \n", jsonMsg.Binaryfile)
+
+	// println("avro compression finished!!!")
+
+	return bytearray
+}
+
+func decodeAvro(message []byte) MyInfo{
+	var output MyInfo
+	b := bytes.NewBuffer(message)
+	
+	println(message)
+	// decode this shit to verify
+	ocfr, err := goavro.NewOCFReader(b)
+
+	var decoded interface{}
+	// println(ocfr.Scan()) //--> if true, messages available
+
+	for ocfr.Scan(){
+			decoded, err = ocfr.Read()
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%s\n", err)
+			}
+			// fmt.Println(decoded)
+			// fmt.Printf("Test mit Printf: %v \n", decoded)
+	}
+
+	jsontest, err := json.Marshal(decoded)
+	if err != nil{
+		log.Fatal(err)
+	}
+	// println(string(jsontest))
+	json.Unmarshal(jsontest, &output)
+
+	// fmt.Printf("Myinfo1: %s \n", output)
+	fmt.Printf("Time: %s \n", output.TheTime)
+	// fmt.Printf("ScareMe: %s \n", output.ScareMe)
+	// fmt.Printf("Binary: %s \n", output.Binaryfile)
+
+	return output
 }
