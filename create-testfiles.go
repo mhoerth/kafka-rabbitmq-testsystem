@@ -11,12 +11,12 @@ import (
 
 func main() {
 
-	size := int64(10 * 1024)
+	size := int64(100 * 1024)
 
     token := make([]byte, size)
     rand.Read(token)
 
-	fd, err := os.Create("output-500Kibi-rand")
+	fd, err := os.Create("output-100Kibi-rand")
 	if err != nil {
 		log.Fatal("Failed to create output")
 	}

@@ -7,16 +7,20 @@
 --> derzeit mit shellscript nach dem Start der Container
 [x]json marshall aus der Zeitmessung entfernen (kafka)
 []round trip time errechnen mit senden+empfangen+senden+empfangen
-[]Zeitmessung für RabbitMQ noch komoisch (Summenzeit aus Messungen länger als Programmlaufzeit)
-[]Zeitmessung bei Kafka ebenfalls komisch
+[x]Zeitmessung für RabbitMQ noch komoisch (Summenzeit aus Messungen länger als Programmlaufzeit)
+[x]Zeitmessung bei Kafka ebenfalls komisch
 --> mögliche Erklärung: man nimmt die Zeit in jeder Nachricht und vergleicht diese mit der aktuellen Zeit
 --> dadurch kommt es zu dem Fehler, dass wenn Nachrichten Zeitgleich ankommen,
+--> Zeit der Messung != SUmmenzeit ! (KA, warum ich das erst gemeint habe...)
 dass beide Nachrichten gleich lange benötigt haben, aber der Gesammtprozess hat nicht so lange benötigt,
 wie die Summe der Zeiten der einzelnen Nachrichten !!!
 
 [x]mehrere ConsumerProducer von Rabbit starten
 [x]Kafka prodcon abstimmung und setzen der partition noch überarbeiten (derzeit fehlerhaft)
-[]linkedIn avro library für test einbauen
+[x]linkedIn avro library für test einbauen
+[]avro und protobuf in rabbitMQ einbauen
+[]Zeit der Kodierung in die einzelnen Formate Messen
+[](optional) sizeOf Methode für die Nachrichtengröße einbauen
 
 
 Erkenntnisse:
@@ -26,3 +30,4 @@ benötigt das konsumeiren von NAchrichten ca. 1/3 mehr Zeit (wie ist es bei Kafk
 --> mögliche Erklärung: mit der SChleife, muss immer wieder eine neue Verbindung
 zum Konsumieren der Nachrichten aufgebaut werden, ohne Schleife ließt der eine channel der erzeugt wird
 alle Nachrichten (Zeitersparnis durch weniger Aufwand in der channelerstellung)
+--> bei Kafka muss die Consume Methode in eine Schleife, da ansonsten immer die gliche Nachricht konsumiert wird !
