@@ -44,11 +44,12 @@ var countprodcon int
 var messages int
 var partitions []string
 
-var sendTime [10000]string
-var consendTime [6][10000]string
-var consumeTime [10000]string
+var sendTime [1000000]string
+var consendTime [6][1000000]string
+var consumeTime [1000000]string
 var completeTime float64
 var sessionStarttime int64
+var encodingTime [1000000]string
 
 // var repotchan chan string
 var testing int
@@ -285,7 +286,7 @@ func producer(producerid int, messages int, targetTopic1 string, targetPartition
 
 	jsonMsg.ScareMe = "Yes, please"
 	jsonMsg.Binaryfile = testifleinput
-	sessionStarttime = time.Now().UnixNano()
+	// sessionStarttime = time.Now().UnixNano()
 	jsonString := ""
 
 	for i := 0; i < sendmessages; i++ {
@@ -419,6 +420,10 @@ func consumer(consumerID int, messages int, targetTopic1 string, targetPartition
 		timevalue, err := strconv.ParseInt(jsonRecord.TheTime, 10, 64)
 		if err != nil {
 			log.Fatal("%s", err)
+		}
+		// set sessionStartTime (Time the first message (i==0) was send)
+		if i == 0{
+			sessionStarttime = timevalue
 		}
 
 		duration:= messageReceivedTime - timevalue
@@ -811,9 +816,13 @@ func encodeAvro(scareMe string, binary []byte) []byte{
 	// if err != nil {
 	// 	panic(err)
 	// }
+	// startTime = strconv.Itoa(int(time.Now().UnixNano()))	//--> important to use this command twice, because of accourate time measurement !
 
-	// test json vor codierung
-	// var jsonMsg MyInfo
+	// ToDo:
+	// duration:= messageReceivedTime - timevalue
+	// durationMs := float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
+
+	// consendTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
 
 	ocfw, err := goavro.NewOCFWriter(goavro.OCFConfig{
 		W:     &b,
@@ -832,38 +841,6 @@ func encodeAvro(scareMe string, binary []byte) []byte{
 	bytearray:= b.Bytes()
 	// control printout
 	// println(b.Cap())
-
-	// s := string(bytearray)
-	// fmt.Println(s)
-
-
-	// decode this shit to verify
-	// var d bytes.Buffer
-	// ocfr, err := goavro.NewOCFReader(&b)
-
-	// var decoded interface{}
-	// println(ocfr.Scan())
-
-	// for ocfr.Scan(){
-	// 		decoded, err = ocfr.Read()
-	// 		if err != nil {
-	// 			fmt.Fprintf(os.Stderr, "%s\n", err)
-	// 		}
-	// 		// s := string(decoded)
-	// 		// fmt.Println(s)
-	// 		fmt.Println(decoded)
-	// 		// fmt.Printf("Test mit Printf: %v \n", decoded)
-	// }
-
-	// jsontest, err := json.Marshal(decoded)
-	// if err != nil{
-	// 	log.Fatal(err)
-	// }
-	// println(string(jsontest))
-	// json.Unmarshal(jsontest, &jsonMsg)
-	// // json.Unmarshal(jsontest, &jsonMsg2)
-
-	// // fmt.Printf("Myinfo1: %s \n", jsonMsg)
 	// fmt.Printf("Time: %s \n", jsonMsg.TheTime)
 	// fmt.Printf("ScareMe: %s \n", jsonMsg.ScareMe)
 	// fmt.Printf("Binary: %s \n", jsonMsg.Binaryfile)

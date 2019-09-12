@@ -18,8 +18,10 @@ wie die Summe der Zeiten der einzelnen Nachrichten !!!
 [x]mehrere ConsumerProducer von Rabbit starten
 [x]Kafka prodcon abstimmung und setzen der partition noch überarbeiten (derzeit fehlerhaft)
 [x]linkedIn avro library für test einbauen
-[]avro und protobuf in rabbitMQ einbauen
+[x]avro und protobuf in rabbitMQ einbauen
 []Zeit der Kodierung in die einzelnen Formate Messen
+--> Probleme: wie kann ich die Zeit für die Komprimierung der einzelnen Nachrichten den einzelnen Nachrichten
+zuordnen? (Problem: mehrere Go routinen, die auf das gleiche array, und somit auf den gleichen speicher zugreifen)
 [](optional) sizeOf Methode für die Nachrichtengröße einbauen
 
 
