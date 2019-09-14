@@ -9,7 +9,7 @@ import (
 	"math/rand"
 )
 
-func main() {
+func createTestFiles() {
 
 	size := int64(100 * 1024)
 

@@ -1,4 +1,4 @@
-package main
+package kafka
 
 import (
 	"context"
@@ -11,23 +11,12 @@ import (
 	"log"
 	"regexp"
 	"strings"
-	"bytes"
+
+	"../encoding"
+	"../structs"
 
 	"github.com/Shopify/sarama"
-	"github.com/linkedin/goavro"
-	"github.com/golang/protobuf/proto"
 )
-
-type MyInfo struct {
-	TheTime    string `json:"theTime"`
-	ScareMe    string `json:"scareme"`
-	Binaryfile []byte `json:"binaryfile"`
-}
-// type MyInfo2 struct {
-// 	Binaryfile []byte `json:"binary"`
-// 	ScareMe    string `json:"scare"`
-// 	TheTime    string `json:"theTime"`
-// }
 
 // var idmap map[int]int32
 var finishedconsumtion = make(chan bool, 10000)
@@ -53,50 +42,20 @@ var testing int
 // var m map[[]byte][string][string] interface{}
 
 // for avro
-const loginEventAvroSchema = `{"type": "record", "name": "LoginEvent", "fields": [{"name": "TheTime", "type": "string"}, {"name": "ScareMe", "type": "string"}, {"name": "Binaryfile", "type": "bytes"}]}`
 var compressionType string
 
-func main() {
-	topictemp := "test"
-	messages = 1
-	countprodcon = 0
-	compressionType = "json"
-	messageSize = ""
-	// avro test
+func Kafka(messageamount int, topic string, conProdInst int, compression string, sizeOfMessaage string) {
+	// topictemp := "test"
+	// messages = 1
+	// countprodcon = 0
+	// compressionType = "json"
 
-	// fill commandline parameters in programm variables
-	for i:=0; i < len(os.Args); i++{
-		fmt.Printf("%d : %s \n", i, os.Args[i])
+	topictemp := topic
+	messages = messageamount
+	countprodcon = conProdInst
+	compressionType = compression
 
-		if i == 1{
-			messagesCMD, err := strconv.ParseInt(os.Args[i], 10,64)
-			if err != nil {
-				log.Fatal("%s", err)
-			}
-			messages = int(messagesCMD)
-		}
-		if i == 2{
-			topictemp = os.Args[i]
-		}
-		if i == 3{
-			countprodconCMD, err := strconv.ParseInt(os.Args[i], 10, 64)
-			if err != nil {
-				log.Fatal("%s", err)
-			}
-			countprodcon = int(countprodconCMD)
-		}
-		if i == 4{
-			if os.Args[i] != ""{
-				messageSize = os.Args[i]
-			}else{
-				fmt.Println("Missing file for binary message (generated file with fixed size of random data)")
-				fmt.Println("Sending only the Time and and Identifier for every message !!!")
-			}
-		}
-		if i == 5{
-			compressionType = os.Args[i]
-		}
-	}
+	messageSize = sizeOfMessaage
 	
 	brokers = []string{"127.0.0.1:9092"}
 	configEnv(topictemp)
@@ -291,7 +250,7 @@ func producer(producerid int, messages int, targetTopic1 string, targetPartition
 	fmt.Printf("Producer %d sets partitionID: %d \n", producerid, targetPartition)
 
 	var testifleinput []byte
-	var jsonMsg MyInfo
+	var jsonMsg structs.MyInfo
 
 	if testifleinput == nil {
 		// testifleinput, err = ioutil.ReadFile("../../output-" + messageSize + "Kibi-rand")
@@ -332,10 +291,14 @@ func producer(producerid int, messages int, targetTopic1 string, targetPartition
 			jsonString = (string)(jsonOutput)
 			// println(jsonString)
 		case "avro":
-			jsonOutput := encodeAvro(0, i, jsonMsg.ScareMe, jsonMsg.Binaryfile)
+			jsonOutput, needTime := encoding.EncodeAvro(0, i, jsonMsg.ScareMe, jsonMsg.Binaryfile) //get encoded message + encoding time
+			durationMs := float64(needTime) / float64(1000000) //Nanosekunden in Milisekunden
+			encodingTime[0][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
 			jsonString = (string)(jsonOutput)
 		case "proto":
-			jsonOutput := encodeProto(0, i, jsonMsg.ScareMe, jsonMsg.Binaryfile)
+			jsonOutput, needTime := encoding.EncodeProto(0, i, jsonMsg.ScareMe, jsonMsg.Binaryfile)
+			durationMs := float64(needTime) / float64(1000000) //Nanosekunden in Milisekunden
+			encodingTime[0][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
 			jsonString = (string)(jsonOutput)
 		default:
 			jsonMsg.TheTime = strconv.Itoa(int(time.Now().UnixNano())) //--> important to use this command twice, because of accourate time measurement !
@@ -442,7 +405,8 @@ func consumer(consumerID int, messages int, targetTopic1 string, targetPartition
 			continue
 		}
 
-		var jsonRecord MyInfo
+		var jsonRecord structs.MyInfo
+		var needTime int64
 		// check compressionType
 		switch compressionType {
 		case "json":
@@ -456,10 +420,14 @@ func consumer(consumerID int, messages int, targetTopic1 string, targetPartition
 			decodingTime[0][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
 		case "avro":
 			// println(string(msg.Value)) // --> falche Zeiten kommen hier bereits an !!!!!
-			jsonRecord = decodeAvro(0, i, msg.Value)
+			jsonRecord, needTime = encoding.DecodeAvro(0, i, msg.Value)
+			durationMs := float64(needTime) / float64(1000000) //Nanosekunden in Milisekunden
+			decodingTime[0][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
 		case "proto":
 			// println(string(msg.Value)) // --> falche Zeiten kommen hier bereits an !!!!!
-			jsonRecord = decodeProto(0, i, msg.Value)
+			jsonRecord, needTime = encoding.DecodeProto(0, i, msg.Value)
+			durationMs := float64(needTime) / float64(1000000) //Nanosekunden in Milisekunden
+			decodingTime[0][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
 		}
 
 		timevalue, err := strconv.ParseInt(jsonRecord.TheTime, 10, 64)
@@ -509,7 +477,7 @@ func (h exampleConsumerGroupHandler) ConsumeClaim(sess sarama.ConsumerGroupSessi
 	// testing = testing + 1
 
 		i:=0
-		var jsonRecord MyInfo
+		var jsonRecord structs.MyInfo
 
 	for msg := range claim.Messages() {
 		if i < (messages){
@@ -736,7 +704,8 @@ func prodcon(consendID int, messages int, targetTopic1 string, conPartition int3
 			continue
 		}
 
-		var jsonRecord MyInfo
+		var jsonRecord structs.MyInfo
+		var needTime int64
 		// check compressionType
 		switch compressionType {
 		case "json":
@@ -748,9 +717,13 @@ func prodcon(consendID int, messages int, targetTopic1 string, conPartition int3
 			durationMs := float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
 			decodingTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
 		case "avro":
-			jsonRecord = decodeAvro(consendID, i, msg.Value)
+			jsonRecord, needTime = encoding.DecodeAvro(consendID, i, msg.Value)
+			durationMs := float64(needTime) / float64(1000000) //Nanosekunden in Milisekunden
+			decodingTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
 		case "proto":
-			jsonRecord = decodeProto(consendID, i, msg.Value)
+			jsonRecord, needTime = encoding.DecodeProto(consendID, i, msg.Value)
+			durationMs := float64(needTime) / float64(1000000) //Nanosekunden in Milisekunden
+			decodingTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
 		}
 
 		timevalue, err := strconv.ParseInt(jsonRecord.TheTime, 10, 64)
@@ -773,7 +746,7 @@ func prodcon(consendID int, messages int, targetTopic1 string, conPartition int3
 
 		// select compression / message format
 		switch compressionType {
-		case "":
+		case "json":
 			jsonRecord.TheTime = strconv.Itoa(int(time.Now().UnixNano()))
 			startTime := time.Now().UnixNano()
 			jsonOutput, _ := json.Marshal(&jsonRecord)
@@ -785,10 +758,14 @@ func prodcon(consendID int, messages int, targetTopic1 string, conPartition int3
 
 			jsonString = (string)(jsonOutput)	
 		case "avro":
-			jsonOutput := encodeAvro(consendID, i, jsonRecord.ScareMe, jsonRecord.Binaryfile)
+			jsonOutput, needTime := encoding.EncodeAvro(consendID, i, jsonRecord.ScareMe, jsonRecord.Binaryfile)
+			durationMs := float64(needTime) / float64(1000000) //Nanosekunden in Milisekunden
+			encodingTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
 			jsonString = (string)(jsonOutput)
 		case "proto":
-			jsonOutput := encodeProto(consendID, i, jsonRecord.ScareMe, jsonRecord.Binaryfile)
+			jsonOutput, needTime := encoding.EncodeProto(consendID, i, jsonRecord.ScareMe, jsonRecord.Binaryfile)
+			durationMs := float64(needTime) / float64(1000000) //Nanosekunden in Milisekunden
+			encodingTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
 			jsonString = (string)(jsonOutput)
 		default:
 			jsonRecord.TheTime = strconv.Itoa(int(time.Now().UnixNano()))
@@ -851,160 +828,4 @@ func contains(array []string, search string) bool{
 		}
 	}
 	return false
-}
-
-func encodeAvro(conProdID int, messageID int, scareMe string, binary []byte) []byte{
-	// println("avro compression starting....")
-    var b bytes.Buffer
-    // foo := bufio.NewWriter(&b)
-
-	codec, err := goavro.NewCodec(loginEventAvroSchema)
-	if err != nil {
-		panic(err)
-	}
-
-	var values []map[string] interface{}
-	theTime := strconv.Itoa(int(time.Now().UnixNano()))
-	// values = append(values, m)
-	// values = append(values, map[string] interface{}{"TheTime": "643573245", "ScareMe": "scareMe", "Binaryfile": []byte{0, 1, 2, 4, 5}})
-	// values = append(values, map[string] interface{}{"TheTime": "657987654", "ScareMe": "scareMe", "Binaryfile": []byte{0, 1, 2, 4, 5}})
-	values = append(values, map[string] interface{}{"TheTime": theTime, "ScareMe": scareMe, "Binaryfile": binary})
-
-	// f, err := os.Create("event.avro")
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// startTime = strconv.Itoa(int(time.Now().UnixNano()))	//--> important to use this command twice, because of accourate time measurement !
-
-	startTime := time.Now().UnixNano()
-
-	ocfw, err := goavro.NewOCFWriter(goavro.OCFConfig{
-		W:     &b,
-		Codec: codec,
-	})
-	if err != nil {
-		panic(err)
-	}
-	// println(values)
-	// println("Appending bytes")
-	ocfw.Append(values)
-	// if err = ocfw.Append(values); err != nil {
-	// 	panic(err)
-	// }
-	bytearray:= b.Bytes()
-	endTime := time.Now().UnixNano()
-	duration:= endTime - startTime
-	durationMs := float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
-	encodingTime[conProdID][messageID] = strconv.FormatFloat(durationMs, 'f', 6, 64)
-
-	// control printout
-	// println(b.Cap())
-	// fmt.Printf("Time: %s \n", jsonMsg.TheTime)
-	// fmt.Printf("ScareMe: %s \n", jsonMsg.ScareMe)
-	// fmt.Printf("Binary: %s \n", jsonMsg.Binaryfile)
-
-	// println("avro compression finished!!!")
-
-	return bytearray
-}
-
-func decodeAvro(conProdID int, messageID int, message []byte) MyInfo{
-	var output MyInfo
-	b := bytes.NewBuffer(message)
-	
-	// decode this shit to verify
-	ocfr, err := goavro.NewOCFReader(b)
-
-	var decoded interface{}
-	// println(ocfr.Scan()) //--> if true, messages available
-	startTime := time.Now().UnixNano()
-
-	for ocfr.Scan(){
-			decoded, err = ocfr.Read()
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s\n", err)
-			}
-			// fmt.Println(decoded)
-			// fmt.Printf("Test mit Printf: %v \n", decoded)
-	}
-
-	jsontest, err := json.Marshal(decoded)
-	if err != nil{
-		log.Fatal(err)
-	}
-	// println(string(jsontest))
-	json.Unmarshal(jsontest, &output)
-
-	endTime := time.Now().UnixNano()
-	duration:= endTime - startTime
-	durationMs := float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
-	decodingTime[conProdID][messageID] = strconv.FormatFloat(durationMs, 'f', 6, 64)
-
-	// fmt.Printf("Myinfo1: %s \n", output)
-	// fmt.Printf("Time: %s \n", output.TheTime)
-	// fmt.Printf("ScareMe: %s \n", output.ScareMe)
-	// fmt.Printf("Binary: %s \n", output.Binaryfile)
-
-	return output
-}
-
-func encodeProto(conProdID int, messageID int, scareMe string, binary []byte) []byte{
-	// get current time
-	getTime := strconv.Itoa(int(time.Now().UnixNano()))
-
-	// define object content
-	object := &TestProto{
-        TheTime: getTime,
-		ScareMe:  scareMe,
-		BinaryFile: binary,
-    }
-
-	startTime := time.Now().UnixNano()
-	// marshal content like json format
-    data, err := proto.Marshal(object)
-    if err != nil {
-        log.Fatal("marshaling error: ", err)
-    }
-
-	endTime := time.Now().UnixNano()
-	duration:= endTime - startTime
-	durationMs := float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
-	encodingTime[conProdID][messageID] = strconv.FormatFloat(durationMs, 'f', 6, 64)
-
-  // printing out our raw protobuf object
-    // fmt.Println(data)
-
-	return data
-}
-
-func decodeProto(conProdID int, messageID int, message []byte) MyInfo{
-  // byte array into an object which can be modified and used
-  object := &TestProto{}
-
-  startTime := time.Now().UnixNano()
-
-  err := proto.Unmarshal(message, object)
-  if err != nil {
-	  log.Fatal("unmarshaling error: ", err)
-}
-
-// protobuf to json
-var jsonMsg MyInfo
-
-jsonMsg.TheTime = object.GetTheTime()
-jsonMsg.ScareMe = object.GetScareMe()
-jsonMsg.Binaryfile = object.GetBinaryFile()
-
-endTime := time.Now().UnixNano()
-duration:= endTime - startTime
-durationMs := float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
-decodingTime[conProdID][messageID] = strconv.FormatFloat(durationMs, 'f', 6, 64)
-
-	// print out our `newElliot` object
-	// for good measure
-	// fmt.Printf("Time: %s \n", jsonMsg.TheTime)
-	// fmt.Printf("ScareMe: %s \n", jsonMsg.ScareMe)
-	// fmt.Printf("Binary: %s \n", jsonMsg.Binaryfile)
-
-	return jsonMsg
 }

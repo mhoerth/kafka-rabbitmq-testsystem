@@ -1,9 +1,0 @@
-syntax="proto3";
-
-package main;
-
-message testProto{
-    string theTime = 1;
-    string scareMe = 2;
-    bytes binaryFile = 3;
-}
