@@ -8,6 +8,8 @@ import (
 	"os"
 	"strconv"
 	"time"
+	"regexp"
+	"strings"
 
 	"../encoding"
 	"../structs"
@@ -66,8 +68,10 @@ func Rabbit(messageamount int, queue string, conProdInst int, compression string
 
 	println("Writing CSV file")
 	// write file
+	re:=regexp.MustCompile("[0-9]+")
+	messageSize = strings.Join(re.FindAllString(messageSize, -1), "")
 
-	f, err := os.Create("testfileRabbit.csv")
+	f, err := os.Create("RabbitMqTestResult" + "_" + strconv.Itoa(countprodcon) + "_" + compressionType + "_" + strconv.Itoa(messages) + "_" + messageSize + "Kibi" + ".csv")
 	if err != nil {
 		panic(err)
 	}
@@ -75,25 +79,35 @@ func Rabbit(messageamount int, queue string, conProdInst int, compression string
 
 	f.WriteString("Messagenumber;")
 	f.WriteString("ProducerSendTime;")
-	f.WriteString("Consumer&ProducerSendTime;")
-	f.WriteString("ConsumerTime;\n")
+	f.WriteString("ProducerEncodingTime;")
+	if countprodcon > 0{
+		f.WriteString("Consumer&ProducerSendTime;")
+		f.WriteString("Consumer&ProducerEncodeTime;")
+		f.WriteString("Consumer&ProducerDecodeTime;")	
+	}
+	f.WriteString("ConsumerTime;")
+	f.WriteString("ConsumerDecodingTime;")
+	f.WriteString("\n")
 
-	for i := 0; i < messages; i++ {
-		// f.WriteString("ProducerSendTime: ")
+	for i:=0; i < messages; i++{
 		f.WriteString(strconv.Itoa(i) + " ;") //Messagenumber
 		f.WriteString(sendTime[i] + ";")
-		for cp := 1; cp <= countprodcon; cp++ {
+		f.WriteString(encodingTime[0][i] + ";")
+		for cp:=1; cp <= countprodcon; cp++{
 			// f.WriteString("Consumer&ProducerSendTime: ")
 			// f.WriteString(";")
-			f.WriteString(consendTime[cp][i])
-			if cp < countprodcon {
-				f.WriteString("; \n" + strconv.Itoa(i) + "; ;")
-			} else {
+			f.WriteString(consendTime[cp][i] + ";")
+			f.WriteString(encodingTime[cp][i] + ";")
+			f.WriteString(decodingTime[cp][i])
+			if(cp < countprodcon){
+				f.WriteString("; \n"  + strconv.Itoa(i) +  "; ;")
+			}else{
 				f.WriteString(";")
 			}
 		}
 		// f.WriteString("ConsumerTime: ")
-		f.WriteString(consumeTime[i])
+		f.WriteString(consumeTime[i] + ";")
+		f.WriteString(decodingTime[0][i])
 		f.WriteString("; \n")
 	}
 
@@ -132,9 +146,11 @@ func sender(sendQueue string) {
 
 	//   messageStartTime := time.Now()
 	if testifleinput == nil {
-		testifleinput, err = ioutil.ReadFile("../../output-1Kibi-rand")
-		if err != nil {
-			fmt.Print(err)
+		if messageSize != ""{
+			testifleinput, err = ioutil.ReadFile(messageSize)
+			if err != nil {
+				fmt.Print(err)
+			}	
 		}
 	}
 	jsonMsg.ScareMe = "Yes, please"
@@ -380,7 +396,7 @@ func conprod(consendID int, conQueueName string, prodQueueName string) {
 
 				// check compressionType
 				switch compressionType {
-				case "":
+				case "json":
 					startTime := time.Now().UnixNano()
 					json.Unmarshal(d.Body, &jsonRecord)
 					endTime := time.Now().UnixNano()

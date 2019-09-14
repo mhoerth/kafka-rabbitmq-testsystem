@@ -15,6 +15,8 @@ import (
 
 const loginEventAvroSchema = `{"type": "record", "name": "LoginEvent", "fields": [{"name": "TheTime", "type": "string"}, {"name": "ScareMe", "type": "string"}, {"name": "Binaryfile", "type": "bytes"}]}`
 
+// EncodeAvro encodes a message into the avro OCF (Avro object) format invented by the Apache Foundation
+// returns the encoded message as byte array and the timeduration in Nanoseconds of encoding the message
 func EncodeAvro(conProdID int, messageID int, scareMe string, binary []byte) ([]byte, int64){
 	// println("avro compression starting....")
     var b bytes.Buffer
@@ -70,6 +72,8 @@ func EncodeAvro(conProdID int, messageID int, scareMe string, binary []byte) ([]
 	return bytearray, duration
 }
 
+// DecodeAvro decodes a message the specific format 'Myinfo' included in this testsystem
+// returns the decoded message as byte array and the timeduration in Nanoseconds of encoding the message
 func DecodeAvro(conProdID int, messageID int, message []byte) (structs.MyInfo, int64){
 	var output structs.MyInfo
 	b := bytes.NewBuffer(message)

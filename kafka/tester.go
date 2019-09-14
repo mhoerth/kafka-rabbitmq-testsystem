@@ -27,7 +27,7 @@ var countprodcon int
 
 var messages int
 var messageSize string
-var partitions []string
+// var partitions []string
 
 var sendTime [1000000]string
 var consendTime [9][1000000]string	//8 possible consumer+producer
@@ -254,17 +254,11 @@ func producer(producerid int, messages int, targetTopic1 string, targetPartition
 
 	if testifleinput == nil {
 		// testifleinput, err = ioutil.ReadFile("../../output-" + messageSize + "Kibi-rand")
-		testifleinput, err = ioutil.ReadFile(messageSize)
-		if err != nil {
-			fmt.Println(err)
-			// fmt.Println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-			// fmt.Println("Using default size value of 1Kibi, possible values for size are: 1-, 10-, 100-, 500-Kibi")
-			// fmt.Println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-
-			// testifleinput, err = ioutil.ReadFile("../../output-1Kibi-rand") //default value
-			// if err != nil{
-			// 	fmt.Print(err)
-			// }
+		if messageSize != ""{
+			testifleinput, err = ioutil.ReadFile(messageSize)
+			if err != nil {
+				fmt.Println(err)
+			}
 		}
 	}
 

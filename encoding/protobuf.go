@@ -8,7 +8,8 @@ import (
 
 	"github.com/golang/protobuf/proto"
 )
-
+// EncodeProto encodes a message into the protobuf format invented by Google
+// returns the encoded message as byte array and the timeduration in Nanoseconds of encoding the message
 func EncodeProto(conProdID int, messageID int, scareMe string, binary []byte) ([]byte, int64){
 	// get current time
 	getTime := strconv.Itoa(int(time.Now().UnixNano()))
@@ -38,6 +39,8 @@ func EncodeProto(conProdID int, messageID int, scareMe string, binary []byte) ([
 	return data, duration
 }
 
+// DecodeProto decodes a message the specific format 'Myinfo' included in this testsystem
+// returns the decoded message as 'Myinfo'-object and the timeduration in Nanoseconds of encoding the message
 func DecodeProto(conProdID int, messageID int, message []byte) (structs.MyInfo, int64){
   // byte array into an object which can be modified and used
   object := &TestProto{}
