@@ -1,8 +1,8 @@
-# kafka-test
+# Kafka + RabbitMQ testsystem
 
-This repository is craeted to store a testsystem for messagebus systems (currently Apache kafka and RabbitMQ), which is used in my batchelor thesis.
+This repository contains a testsystem for messagebus systems (currently Apache kafka and RabbitMQ), which is used in my batchelor thesis.
 
-# repo description
+# Repository Description
 - contains bouth kafka and rabbitmq testfiles
 - [env](#env), contains the docker-compose files for the envronment
     - included are docker-compose files for starting 1 or 3 kafka / rabbitmq instances
