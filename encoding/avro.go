@@ -58,8 +58,6 @@ func EncodeAvro(conProdID int, messageID int, scareMe string, binary []byte) ([]
 	bytearray:= b.Bytes()
 	endTime := time.Now().UnixNano()
 	duration:= endTime - startTime
-	// durationMs := float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
-	// encodingTime[conProdID][messageID] = strconv.FormatFloat(durationMs, 'f', 6, 64)
 
 	// control printout
 	// println(b.Cap())
@@ -103,9 +101,6 @@ func DecodeAvro(conProdID int, messageID int, message []byte) (structs.MyInfo, i
 
 	endTime := time.Now().UnixNano()
 	duration:= endTime - startTime
-	// durationMs := float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
-	// decodingTime[conProdID][messageID] = strconv.FormatFloat(durationMs, 'f', 6, 64)
-	// timeNeed = strconv.FormatFloat(durationMs, 'f', 6, 64)
 
 	// fmt.Printf("Myinfo1: %s \n", output)
 	// fmt.Printf("Time: %s \n", output.TheTime)

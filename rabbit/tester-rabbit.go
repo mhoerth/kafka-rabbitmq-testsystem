@@ -5,14 +5,12 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"os"
 	"strconv"
 	"time"
-	"regexp"
-	"strings"
 
 	"../encoding"
 	"../structs"
+	"../output"
 
 	"github.com/streadway/amqp"
 )
@@ -23,28 +21,26 @@ var messages int
 var messageSize string
 var countprodcon int
 
-var sendTime [10000]string
-var consendTime [6][10000]string
-var consumeTime [10000]string
-var completeTime float64
 var sessionStarttime int64
 
-var encodingTime [9][1000000]string	//encodingTime[0][] is reserved for 'normal' producer
-var decodingTime [9][1000000]string //encodingTime[0][] is reserved for 'normal' consumer
-
 var compressionType string
+var csvStruct structs.Csv
 
+// Rabbit starts a RabbitMQ producer and consumer with the option to add up to 6 instances which are consuming and producing (changing the message a bit)
+// , to define an encoding format, and the size of the binary message included in the message sent to the message bus system, the queuename to send to and the message amount
 func Rabbit(messageamount int, queue string, conProdInst int, compression string, sizeOfMessaage string) {
-
-	// messages = 10
-	// countprodcon = 2
 
 	queuetemp := queue
 	messages = messageamount
 	countprodcon = conProdInst
 	compressionType = compression
-
 	messageSize = sizeOfMessaage
+
+	csvStruct.Testsystem = "Rabbit"
+	csvStruct.Messages = messageamount
+	csvStruct.CountProdCon = conProdInst
+	csvStruct.MessageSize = sizeOfMessaage
+	csvStruct.CompressionType = compression
 
 	starttime := time.Now()
 	// starttime2 := time.Now().UnixNano()
@@ -67,56 +63,11 @@ func Rabbit(messageamount int, queue string, conProdInst int, compression string
 	close(finishedconsumtion)
 
 	println("Writing CSV file")
-	// write file
-	re:=regexp.MustCompile("[0-9]+")
-	messageSize = strings.Join(re.FindAllString(messageSize, -1), "")
-
-	f, err := os.Create("RabbitMqTestResult" + "_" + strconv.Itoa(countprodcon) + "_" + compressionType + "_" + strconv.Itoa(messages) + "_" + messageSize + "Kibi" + ".csv")
-	if err != nil {
-		panic(err)
-	}
-	defer f.Close()
-
-	f.WriteString("Messagenumber;")
-	f.WriteString("ProducerSendTime;")
-	f.WriteString("ProducerEncodingTime;")
-	if countprodcon > 0{
-		f.WriteString("Consumer&ProducerSendTime;")
-		f.WriteString("Consumer&ProducerEncodeTime;")
-		f.WriteString("Consumer&ProducerDecodeTime;")	
-	}
-	f.WriteString("ConsumerTime;")
-	f.WriteString("ConsumerDecodingTime;")
-	f.WriteString("\n")
-
-	for i:=0; i < messages; i++{
-		f.WriteString(strconv.Itoa(i) + " ;") //Messagenumber
-		f.WriteString(sendTime[i] + ";")
-		f.WriteString(encodingTime[0][i] + ";")
-		for cp:=1; cp <= countprodcon; cp++{
-			// f.WriteString("Consumer&ProducerSendTime: ")
-			// f.WriteString(";")
-			f.WriteString(consendTime[cp][i] + ";")
-			f.WriteString(encodingTime[cp][i] + ";")
-			f.WriteString(decodingTime[cp][i])
-			if(cp < countprodcon){
-				f.WriteString("; \n"  + strconv.Itoa(i) +  "; ;")
-			}else{
-				f.WriteString(";")
-			}
-		}
-		// f.WriteString("ConsumerTime: ")
-		f.WriteString(consumeTime[i] + ";")
-		f.WriteString(decodingTime[0][i])
-		f.WriteString("; \n")
-	}
-
-	f.WriteString("CompleteTimeDuration;")
-	f.WriteString(strconv.FormatFloat(completeTime, 'f', 6, 64))
-	f.WriteString("; \n")
-
+	// // write file
+	output.Csv(csvStruct) //csvStruct is too large for a go routine
 }
 
+// starting and configuring a producer for rabbitmq
 func sender(sendQueue string) {
 	// connect to rabbitmq
 	conn, err := amqp.Dial("amqp://rabbitmq:rabbitmq@localhost:5672/")
@@ -131,7 +82,7 @@ func sender(sendQueue string) {
 	//create queue for sending messages
 	q, err := ch.QueueDeclare(
 		sendQueue, // name
-		false,     // durable
+		true,     // durable
 		false,     // delete when unused
 		false,     // exclusive
 		false,     // no-wait
@@ -176,16 +127,16 @@ func sender(sendQueue string) {
 
 			duration:= endTime - startTime
 			durationMs := float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
-			encodingTime[0][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
+			csvStruct.EncodingTime[0][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
 			// println(jsonString)
 		case "avro":
 			jsonOutput, needTime = encoding.EncodeAvro(0, i, jsonMsg.ScareMe, jsonMsg.Binaryfile)
 			durationMs := float64(needTime) / float64(1000000) //Nanosekunden in Milisekunden
-			encodingTime[0][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
+			csvStruct.EncodingTime[0][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
 		case "proto":
 			jsonOutput, needTime = encoding.EncodeProto(0, i, jsonMsg.ScareMe, jsonMsg.Binaryfile)
 			durationMs := float64(needTime) / float64(1000000) //Nanosekunden in Milisekunden
-			encodingTime[0][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
+			csvStruct.EncodingTime[0][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
 		default:
 			jsonMsg.TheTime = strconv.Itoa(int(time.Now().UnixNano())) //--> important to use this command twice, because of accourate time measurement !
 			jsonOutput, _ = json.Marshal(&jsonMsg)
@@ -208,7 +159,7 @@ func sender(sendQueue string) {
 
 		messageEndTime := time.Since(messageStartTime).Seconds() * 1000
 		//   messageEndTimeTest := messageEndTime.Seconds()*1000
-		sendTime[i] = strconv.FormatFloat(messageEndTime, 'f', 6, 64)
+		csvStruct.SendTime[i] = strconv.FormatFloat(messageEndTime, 'f', 6, 64)
 		//   completeTime = completeTime + messageEndTime
 		//   log.Printf("SendTime: %f", messageEndTime)
 		//   log.Printf("SendTimeduration for recerving Message %d: %s", i, strconv.FormatFloat(messageEndTime, 'f', 6, 64))
@@ -218,6 +169,7 @@ func sender(sendQueue string) {
 	finishedsending <- true
 }
 
+// stating and configureing a consumer for rabbitmq
 func consumer(conQueue string) {
 	conn, err := amqp.Dial("amqp://rabbitmq:rabbitmq@localhost:5672/")
 	failOnError(err, "Failed to connect to RabbitMQ")
@@ -229,7 +181,7 @@ func consumer(conQueue string) {
 
 	q, err := ch.QueueDeclare(
 		conQueue, // name
-		false,    // durable
+		true,    // durable
 		false,    // delete when usused
 		false,    // exclusive
 		false,    // no-wait
@@ -273,17 +225,17 @@ func consumer(conQueue string) {
 	
 				duration:= endTime - startTime
 				durationMs := float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
-				decodingTime[0][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)	
+				csvStruct.DecodingTime[0][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)	
 			case "avro":
 				// println(string(msg.Value)) // --> falche Zeiten kommen hier bereits an !!!!!
 				jsonRecord,needTime = encoding.DecodeAvro(0, i, d.Body)
 				durationMs := float64(needTime) / float64(1000000) //Nanosekunden in Milisekunden
-				decodingTime[0][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)	
+				csvStruct.DecodingTime[0][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)	
 			case "proto":
 				// println(string(msg.Value)) // --> falche Zeiten kommen hier bereits an !!!!!
 				jsonRecord,needTime = encoding.DecodeProto(0, i, d.Body)
 				durationMs := float64(needTime) / float64(1000000) //Nanosekunden in Milisekunden
-				decodingTime[0][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)	
+				csvStruct.DecodingTime[0][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)	
 			}
 
 			timevalue, err := strconv.ParseInt(jsonRecord.TheTime, 10, 64)
@@ -301,7 +253,7 @@ func consumer(conQueue string) {
 			duration := messageReceivedTime - timevalue
 			durationMs := float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
 
-			consumeTime[i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
+			csvStruct.ConsumeTime[i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
 			// completeTime = completeTime + durationMs
 
 			// compute complete time
@@ -310,7 +262,7 @@ func consumer(conQueue string) {
 			sessionEndtimeMS := float64(sessionEndtime) / float64(1000000)     //Nanosekunden in Milisekunden
 			sessionStarttimeMS := float64(sessionStarttime) / float64(1000000) //Nanosekunden in Milisekunden
 			sendReceiveDuration := sessionEndtimeMS - sessionStarttimeMS
-			completeTime = sendReceiveDuration
+			csvStruct.CompleteTime = sendReceiveDuration
 
 			// fmt.Printf("Duration of Message: %d \n", duration)
 			// fmt.Printf("Duration of Message in ms: %f \n", durationMs)
@@ -330,6 +282,7 @@ func consumer(conQueue string) {
 	finishedconsumtion <- true
 }
 
+// stating a producer and consumer for rabbitmq to simulate multiple message exchanges over the message bus
 func conprod(consendID int, conQueueName string, prodQueueName string) {
 	conn, err := amqp.Dial("amqp://rabbitmq:rabbitmq@localhost:5672/")
 	failOnError(err, "Failed to connect to RabbitMQ")
@@ -342,7 +295,7 @@ func conprod(consendID int, conQueueName string, prodQueueName string) {
 
 	qc, err := chC.QueueDeclare(
 		conQueueName, // name
-		false,        // durable
+		true,        // durable
 		false,        // delete when usused
 		false,        // exclusive
 		false,        // no-wait
@@ -403,15 +356,15 @@ func conprod(consendID int, conQueueName string, prodQueueName string) {
 		
 					duration:= endTime - startTime
 					durationMs := float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
-					decodingTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)		
+					csvStruct.DecodingTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)		
 				case "avro":
 					jsonRecord, needTime = encoding.DecodeAvro(consendID, i, d.Body)
 					durationMs := float64(needTime) / float64(1000000) //Nanosekunden in Milisekunden
-					decodingTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)		
+					csvStruct.DecodingTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)		
 				case "proto":
 					jsonRecord, needTime = encoding.DecodeProto(consendID, i, d.Body)
 					durationMs := float64(needTime) / float64(1000000) //Nanosekunden in Milisekunden
-					decodingTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)		
+					csvStruct.DecodingTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)		
 				}
 
 				timevalue, err := strconv.ParseInt(jsonRecord.TheTime, 10, 64)
@@ -426,7 +379,7 @@ func conprod(consendID int, conQueueName string, prodQueueName string) {
 				duration := messageReceivedTime - timevalue
 				durationMs := float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
 
-				consendTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
+				csvStruct.ConSendTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
 				//    completeTime = completeTime + durationMs
 
 				//   fmt.Printf("Duration of Message: %d \n", duration)
@@ -449,15 +402,15 @@ func conprod(consendID int, conQueueName string, prodQueueName string) {
 		
 					duration:= endTime - startTime
 					durationMs := float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
-					encodingTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)		
+					csvStruct.EncodingTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)		
 				case "avro":
 					jsonOutput, needTime = encoding.EncodeAvro(consendID, i, jsonRecord.ScareMe, jsonRecord.Binaryfile)
 					durationMs := float64(needTime) / float64(1000000) //Nanosekunden in Milisekunden
-					encodingTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)		
+					csvStruct.EncodingTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)		
 				case "proto":
 					jsonOutput, needTime = encoding.EncodeProto(consendID, i, jsonRecord.ScareMe, jsonRecord.Binaryfile)
 					durationMs := float64(needTime) / float64(1000000) //Nanosekunden in Milisekunden
-					encodingTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)		
+					csvStruct.EncodingTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)		
 				default:
 					jsonRecord.TheTime = strconv.Itoa(int(time.Now().UnixNano()))
 					jsonOutput, _ = json.Marshal(&jsonRecord)
@@ -480,7 +433,7 @@ func conprod(consendID int, conQueueName string, prodQueueName string) {
 				messageEndTime := time.Since(messageStartTime).Seconds() * 1000
 				//   messageEndTimeTest := messageEndTime.Seconds()*1000
 				//   sendTime[i] = strconv.FormatFloat(messageEndTime, 'f', 6, 64)
-				consendTime[consendID][i] = strconv.FormatFloat((durationMs + messageEndTime), 'f', 6, 64)
+				csvStruct.ConSendTime[consendID][i] = strconv.FormatFloat((durationMs + messageEndTime), 'f', 6, 64)
 				// completeTime = completeTime + messageEndTime
 				//   log.Printf("SendTime: %f", messageEndTime)
 				//   log.Printf("SendTimeduration for recerving Message %d: %s", i, strconv.FormatFloat(messageEndTime, 'f', 6, 64))
@@ -495,6 +448,7 @@ func conprod(consendID int, conQueueName string, prodQueueName string) {
 	}
 }
 
+// helper function to configure and start several instances of the consumer/producer processes
 func conprodstarter(queuetmplate string) {
 	queuetemp := queuetmplate
 	for i := 1; i <= countprodcon; i++ {
@@ -502,6 +456,7 @@ func conprodstarter(queuetmplate string) {
 	}
 }
 
+// helper function to log errors
 func failOnError(err error, msg string) {
 	if err != nil {
 		log.Fatalf("%s: %s", msg, err)

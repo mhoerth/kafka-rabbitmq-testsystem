@@ -12,12 +12,12 @@ import (
 
 func main() {
 
+	// set default values to avoid programm blocking if no parameter is set by the user
 	topictemp := "test"
 	messages := 1
 	countprodcon := 0
 	compressionType := "json"
 	messageSize := ""
-
 	usedSystem := "kafka"
 
 	// fill commandline parameters in programm variables
@@ -87,6 +87,7 @@ func main() {
 		}
 	}
 
+	// start test regarding to the commandline parameters given by the user
 	if usedSystem == "kafka"{
 		kafka.Kafka(messages, topictemp, countprodcon, compressionType, messageSize)
 	}

@@ -2,18 +2,16 @@ package kafka
 
 import (
 	"context"
-	"os"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"strconv"
 	"time"
 	"log"
-	"regexp"
-	"strings"
 
 	"../encoding"
 	"../structs"
+	"../output"
 
 	"github.com/Shopify/sarama"
 )
@@ -27,44 +25,40 @@ var countprodcon int
 
 var messages int
 var messageSize string
-// var partitions []string
-
-var sendTime [1000000]string
-var consendTime [9][1000000]string	//8 possible consumer+producer
-var consumeTime [1000000]string
-var completeTime float64
 var sessionStarttime int64
-var encodingTime [9][1000000]string	//encodingTime[0][] is reserved for 'normal' producer
-var decodingTime [9][1000000]string //encodingTime[0][] is reserved for 'normal' consumer
 
-// var repotchan chan string
 var testing int
 // var m map[[]byte][string][string] interface{}
 
-// for avro
 var compressionType string
 
+// for csv file writing
+var csvStruct structs.Csv
+
+// Kafka starts a Kafka Producer and consumer with the option to add up to 6 instances which are consuming and producing (changing the message a bit)
+// , to define an encoding format, and the size of the binary message included in the message sent to the message bus system, the topicname to send to and the message amount
 func Kafka(messageamount int, topic string, conProdInst int, compression string, sizeOfMessaage string) {
-	// topictemp := "test"
-	// messages = 1
-	// countprodcon = 0
-	// compressionType = "json"
 
 	topictemp := topic
 	messages = messageamount
 	countprodcon = conProdInst
 	compressionType = compression
-
 	messageSize = sizeOfMessaage
+
+	csvStruct.Testsystem = "Kafka"
+	csvStruct.Messages = messageamount
+	csvStruct.CountProdCon = conProdInst
+	csvStruct.MessageSize = sizeOfMessaage
+	csvStruct.CompressionType = compression
 	
 	brokers = []string{"127.0.0.1:9092"}
 	configEnv(topictemp)
 	starttime := time.Now()
-	go producer(1, messages, (topictemp + strconv.Itoa(0)), 1)
+	go producer(1, messages, (topictemp + strconv.Itoa(0)), 0)
 	// go consumergroup(1, (topictemp + strconv.Itoa(0)))
 	go prodconStarter(topictemp)
 
-	go consumer(1, messages, (topictemp + strconv.Itoa(countprodcon)), 1)
+	go consumer(1, messages, (topictemp + strconv.Itoa(countprodcon)), 0)
 	<-finishedsending
 	<-finishedconsumtion
 
@@ -75,59 +69,13 @@ func Kafka(messageamount int, topic string, conProdInst int, compression string,
 	close(finishedconsumtion)
 	
 	println("Writing CSV file")
-	// write file
-	// get messageSize (digits) out of the filename
-	re:=regexp.MustCompile("[0-9]+")
-	messageSize = strings.Join(re.FindAllString(messageSize, -1), "")
-	
-	// create outputfile with set parameters to identify the test after programm execution
-	f, err := os.Create("KafkaTestResult" + "_" + strconv.Itoa(countprodcon) + "_" + compressionType + "_" + strconv.Itoa(messages) + "_" + messageSize + "Kibi" + ".csv")
-	if err != nil{
-		panic(err)
-	}
-	defer f.Close()
-
-	f.WriteString("Messagenumber;")
-	f.WriteString("ProducerSendTime;")
-	f.WriteString("ProducerEncodingTime;")
-	if countprodcon > 0{
-		f.WriteString("Consumer&ProducerSendTime;")
-		f.WriteString("Consumer&ProducerEncodeTime;")
-		f.WriteString("Consumer&ProducerDecodeTime;")	
-	}
-	f.WriteString("ConsumerTime;")
-	f.WriteString("ConsumerDecodingTime;")
-	f.WriteString("\n")
-
-	for i:=0; i < messages; i++{
-		f.WriteString(strconv.Itoa(i) + " ;") //Messagenumber
-		f.WriteString(sendTime[i] + ";")
-		f.WriteString(encodingTime[0][i] + ";")
-		for cp:=1; cp <= countprodcon; cp++{
-			// f.WriteString("Consumer&ProducerSendTime: ")
-			// f.WriteString(";")
-			f.WriteString(consendTime[cp][i] + ";")
-			f.WriteString(encodingTime[cp][i] + ";")
-			f.WriteString(decodingTime[cp][i])
-			if(cp < countprodcon){
-				f.WriteString("; \n"  + strconv.Itoa(i) +  "; ;")
-			}else{
-				f.WriteString(";")
-			}
-		}
-		// f.WriteString("ConsumerTime: ")
-		f.WriteString(consumeTime[i] + ";")
-		f.WriteString(decodingTime[0][i])
-		f.WriteString("; \n")
-	}
-
-	f.WriteString("CompleteTimeDuration;")
-	f.WriteString(strconv.FormatFloat(completeTime, 'f', 6, 64))
-	f.WriteString("; \n")
+	// go output.Csv("Kafka", messages, sendTime, consumeTime, encodingTime, countprodcon, consendTime, decodingTime, completeTime, messageSize, compressionType)
+	output.Csv(csvStruct) //csvStruct is too large for a go routine
 	deleteConfigEnv(topictemp)
-
 }
 
+// cofigure the kafka test environment
+// define topics, partitions and replicationfactor
 func configEnv(topictemplate string){
 	brokerAddrs := []string{"localhost:9092"}
     config := sarama.NewConfig()
@@ -160,7 +108,7 @@ func configEnv(topictemplate string){
 		for i:=0; i<=countprodcon; i++{
 			if contains(topics, (partitiontemp + strconv.Itoa(i))) == false{
 				err = admin.CreateTopic((partitiontemp + strconv.Itoa(i)), &sarama.TopicDetail{
-					NumPartitions:     60,
+					NumPartitions:     1,
 					ReplicationFactor: 1,
 				}, false)
 				if err != nil {
@@ -172,6 +120,8 @@ func configEnv(topictemplate string){
 		}
 }
 
+// cleanup the testsystem configuration to avoid measure mistakes after one test execution
+// without this function messages are persistent stored in the message bus and the consumer can imediatly consume the required messages !!!
 func deleteConfigEnv(topictemplate string){
 	brokerAddrs := []string{"localhost:9092"}
     config := sarama.NewConfig()
@@ -197,6 +147,7 @@ func deleteConfigEnv(topictemplate string){
 	}
 }
 
+// starts a producer instnce for kafka 
 func producer(producerid int, messages int, targetTopic1 string, targetPartition int32) {
 
 	fmt.Printf("Starting Producer %d \n", producerid)
@@ -280,19 +231,19 @@ func producer(producerid int, messages int, targetTopic1 string, targetPartition
 
 			duration:= endTime - startTime
 			durationMs := float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
-			encodingTime[0][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
+			csvStruct.EncodingTime[0][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
 
 			jsonString = (string)(jsonOutput)
 			// println(jsonString)
 		case "avro":
 			jsonOutput, needTime := encoding.EncodeAvro(0, i, jsonMsg.ScareMe, jsonMsg.Binaryfile) //get encoded message + encoding time
 			durationMs := float64(needTime) / float64(1000000) //Nanosekunden in Milisekunden
-			encodingTime[0][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
+			csvStruct.EncodingTime[0][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
 			jsonString = (string)(jsonOutput)
 		case "proto":
 			jsonOutput, needTime := encoding.EncodeProto(0, i, jsonMsg.ScareMe, jsonMsg.Binaryfile)
 			durationMs := float64(needTime) / float64(1000000) //Nanosekunden in Milisekunden
-			encodingTime[0][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
+			csvStruct.EncodingTime[0][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
 			jsonString = (string)(jsonOutput)
 		default:
 			jsonMsg.TheTime = strconv.Itoa(int(time.Now().UnixNano())) //--> important to use this command twice, because of accourate time measurement !
@@ -302,7 +253,7 @@ func producer(producerid int, messages int, targetTopic1 string, targetPartition
 
 			duration:= endTime - startTime
 			durationMs := float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
-			encodingTime[0][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
+			csvStruct.EncodingTime[0][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
 
 			jsonString = (string)(jsonOutput)
 			// println(jsonString)
@@ -332,7 +283,7 @@ messageStartTime := time.Now()
 		if i < 3{
 			fmt.Printf("Size of msg: %d \n", len(jsonString))
 		}
-		sendTime[i] = strconv.FormatFloat(messageEndTime, 'f', 6, 64)
+		csvStruct.SendTime[i] = strconv.FormatFloat(messageEndTime, 'f', 6, 64)
 		// completeTime = completeTime + messageEndTime
 		// fmt.Printf("Message %d send to partition %d offset %d \n", i, partition, offset)
 
@@ -343,6 +294,7 @@ messageStartTime := time.Now()
 	return
 }
 
+// starts a consumer instance for kafka
 func consumer(consumerID int, messages int, targetTopic1 string, targetPartition int32) {
 
 	fmt.Printf("Starting Consumer %d \n", consumerID)
@@ -411,17 +363,17 @@ func consumer(consumerID int, messages int, targetTopic1 string, targetPartition
 
 			duration:= endTime - startTime
 			durationMs := float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
-			decodingTime[0][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
+			csvStruct.DecodingTime[0][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
 		case "avro":
 			// println(string(msg.Value)) // --> falche Zeiten kommen hier bereits an !!!!!
 			jsonRecord, needTime = encoding.DecodeAvro(0, i, msg.Value)
 			durationMs := float64(needTime) / float64(1000000) //Nanosekunden in Milisekunden
-			decodingTime[0][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
+			csvStruct.DecodingTime[0][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
 		case "proto":
 			// println(string(msg.Value)) // --> falche Zeiten kommen hier bereits an !!!!!
 			jsonRecord, needTime = encoding.DecodeProto(0, i, msg.Value)
 			durationMs := float64(needTime) / float64(1000000) //Nanosekunden in Milisekunden
-			decodingTime[0][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
+			csvStruct.DecodingTime[0][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
 		}
 
 		timevalue, err := strconv.ParseInt(jsonRecord.TheTime, 10, 64)
@@ -436,7 +388,7 @@ func consumer(consumerID int, messages int, targetTopic1 string, targetPartition
 		duration:= messageReceivedTime - timevalue
 		durationMs := float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
 
-		consumeTime[i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
+		csvStruct.ConsumeTime[i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
 		// completeTime = completeTime + durationMs	 
 		// compute complete time
 		// correct the complete time --> complete time for sending and receiving != sum(sendtime + receivetime of all messages)
@@ -444,23 +396,19 @@ func consumer(consumerID int, messages int, targetTopic1 string, targetPartition
 		sessionEndtimeMS := float64(sessionEndtime) / float64(1000000) //Nanosekunden in Milisekunden
 		sessionStarttimeMS := float64(sessionStarttime) / float64(1000000) //Nanosekunden in Milisekunden
 		sendReceiveDuration := sessionEndtimeMS - sessionStarttimeMS
-		completeTime = sendReceiveDuration
+		csvStruct.CompleteTime = sendReceiveDuration
 
 
 		// fmt.Printf("got myInfo: %d \n", i)
 		// fmt.Print(jsonRecord)
 		// fmt.Println()
-
-		// messageEndTime:= time.Since(messageStartTime).Seconds()*1000
-		// consumeTime[i] = strconv.FormatFloat(messageEndTime, 'f', 6, 64)
-		// completeTime = completeTime + messageEndTime
 	}
 	elapsed := time.Since(starttime)
 	fmt.Printf("Consumer: %d receives %d Messages -- elapsed time: %s \nAveragetime per message: %s \n", consumerID, sendmessages, elapsed, elapsed/time.Duration(sendmessages))
 	finishedconsumtion <- true
 	return
 }
-// consumergroup test
+// consumergroup test (example prototype)
 type exampleConsumerGroupHandler struct{}
 
 func (exampleConsumerGroupHandler) Setup(_ sarama.ConsumerGroupSession) error   { return nil }
@@ -498,7 +446,7 @@ func (h exampleConsumerGroupHandler) ConsumeClaim(sess sarama.ConsumerGroupSessi
 			duration:= messageReceivedTime - timevalue
 			durationMs := float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
 
-			consumeTime[i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
+			csvStruct.ConsumeTime[i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
 			println(durationMs)
 			// completeTime = completeTime + durationMs
 			// println(completeTime) 
@@ -506,10 +454,6 @@ func (h exampleConsumerGroupHandler) ConsumeClaim(sess sarama.ConsumerGroupSessi
 		// 	// fmt.Printf("got myInfo: %d \n", i)
 		// 	// fmt.Print(jsonRecord)
 		// 	// fmt.Println()
-
-		// 	// messageEndTime:= time.Since(messageStartTime).Seconds()*1000
-		// 	// consumeTime[i] = strconv.FormatFloat(messageEndTime, 'f', 6, 64)
-		// 	// completeTime = completeTime + messageEndTime
 		// }
 		i = i+1
 		}
@@ -522,6 +466,7 @@ func (h exampleConsumerGroupHandler) ConsumeClaim(sess sarama.ConsumerGroupSessi
 	return nil
 }
 
+// example prototype of a working consumergroup
 func consumergroup(consumerID int, targetTopic1 string) {
 	// <- finishedsending
 	assignor := "roundrobin"
@@ -597,13 +542,14 @@ starttime := time.Now()
 	sessionEndtimeMS := float64(sessionEndtime) / float64(1000000) //Nanosekunden in Milisekunden
 	sessionStarttimeMS := float64(sessionStarttime) / float64(1000000) //Nanosekunden in Milisekunden
 	duration := sessionEndtimeMS - sessionStarttimeMS
-	completeTime = duration
+	csvStruct.CompleteTime = duration
 
 	fmt.Printf("Consumergroup: %d receives %d Messages -- elapsed time: %s \nAveragetime per message: %s \n", consumerID, sendmessages, elapsed, elapsed/time.Duration(sendmessages))
 	finishedconsumtion <- true
 	return
 }
 
+// starting a process with a consumer and a producer to simulate multiple message exchanges over the message bus
 func prodcon(consendID int, messages int, targetTopic1 string, conPartition int32, targetTopic2 string, targetPartition int32, compressionType string) {
 	//contains producer and consumer functionality
 
@@ -709,15 +655,15 @@ func prodcon(consendID int, messages int, targetTopic1 string, conPartition int3
 
 			duration:= endTime - startTime
 			durationMs := float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
-			decodingTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
+			csvStruct.DecodingTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
 		case "avro":
 			jsonRecord, needTime = encoding.DecodeAvro(consendID, i, msg.Value)
 			durationMs := float64(needTime) / float64(1000000) //Nanosekunden in Milisekunden
-			decodingTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
+			csvStruct.DecodingTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
 		case "proto":
 			jsonRecord, needTime = encoding.DecodeProto(consendID, i, msg.Value)
 			durationMs := float64(needTime) / float64(1000000) //Nanosekunden in Milisekunden
-			decodingTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
+			csvStruct.DecodingTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
 		}
 
 		timevalue, err := strconv.ParseInt(jsonRecord.TheTime, 10, 64)
@@ -728,7 +674,7 @@ func prodcon(consendID int, messages int, targetTopic1 string, conPartition int3
 		duration:= messageReceivedTime - timevalue
 		durationMs := float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
 
-		consendTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
+		csvStruct.ConSendTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
 		// completeTime = completeTime + durationMs	 
 
 
@@ -748,18 +694,18 @@ func prodcon(consendID int, messages int, targetTopic1 string, conPartition int3
 
 			duration:= endTime - startTime
 			durationMs := float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
-			encodingTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
+			csvStruct.EncodingTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
 
 			jsonString = (string)(jsonOutput)	
 		case "avro":
 			jsonOutput, needTime := encoding.EncodeAvro(consendID, i, jsonRecord.ScareMe, jsonRecord.Binaryfile)
 			durationMs := float64(needTime) / float64(1000000) //Nanosekunden in Milisekunden
-			encodingTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
+			csvStruct.EncodingTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
 			jsonString = (string)(jsonOutput)
 		case "proto":
 			jsonOutput, needTime := encoding.EncodeProto(consendID, i, jsonRecord.ScareMe, jsonRecord.Binaryfile)
 			durationMs := float64(needTime) / float64(1000000) //Nanosekunden in Milisekunden
-			encodingTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
+			csvStruct.EncodingTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
 			jsonString = (string)(jsonOutput)
 		default:
 			jsonRecord.TheTime = strconv.Itoa(int(time.Now().UnixNano()))
@@ -785,7 +731,7 @@ func prodcon(consendID int, messages int, targetTopic1 string, conPartition int3
 		}
 
 		messageEndTime:= time.Since(messageStartTime).Seconds()*1000
-		consendTime[consendID][i] = strconv.FormatFloat((durationMs + messageEndTime), 'f', 6, 64)
+		csvStruct.ConSendTime[consendID][i] = strconv.FormatFloat((durationMs + messageEndTime), 'f', 6, 64)
 		// completeTime = completeTime + messageEndTime
 
 		if i < 1{
@@ -797,24 +743,21 @@ func prodcon(consendID int, messages int, targetTopic1 string, conPartition int3
 
 		// fmt.Printf("Consumer + Producer %d send modified myInfo: %d to topic: %s \n", consumerID, i, targetTopic2)
 		// fmt.Print(jsonRecord.ScareMe)
-
-		// messageEndTime:= time.Since(messageStartTime).Seconds()*1000
-		// consendTime[consendID][i] = strconv.FormatFloat(messageEndTime, 'f', 6, 64)
-		// completeTime = completeTime + messageEndTime
-
 	}
 	elapsed := time.Since(starttime)
 	fmt.Printf("Consumer + Producer: %d receives and sends %d Messages -- elapsed time: %s \nAveragetime per message: %s \n", consendID, sendmessages, elapsed, elapsed/time.Duration(sendmessages))
 }
 
+// stating several instances of the consumer/producer process automatically consigured by the given class parameters (call of the main function)
 func prodconStarter(topictemplate string){
 	topictemp := topictemplate
 	for i:=1; i <= countprodcon; i++{
 		fmt.Printf("ProdCon %d in starting process \n", i)
-		go prodcon(i, messages, (topictemp + strconv.Itoa(i-1)), 1, (topictemp + strconv.Itoa(i)), 1, compressionType)
+		go prodcon(i, messages, (topictemp + strconv.Itoa(i-1)), 1, (topictemp + strconv.Itoa(i)), 0, compressionType)
 	}
 }
 
+// helper function to get to know, whether a topic is still existent
 func contains(array []string, search string) bool{
 	for index := range array {
 		if array[index] == search{
