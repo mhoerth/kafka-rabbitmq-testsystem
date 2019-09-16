@@ -16,10 +16,9 @@ import (
 	"github.com/Shopify/sarama"
 )
 
-// var idmap map[int]int32
-var finishedconsumtion = make(chan bool, 10000)
-var finishedsending = make(chan bool, 10000)
-var finishedgroup = make(chan bool, 10000)
+var finishedconsumtion = make(chan bool, 10)
+var finishedsending = make(chan bool, 10)
+var finishedgroup = make(chan bool, 10)
 var brokers []string
 var countprodcon int
 
@@ -28,7 +27,6 @@ var messageSize string
 var sessionStarttime int64
 
 var testing int
-// var m map[[]byte][string][string] interface{}
 
 var compressionType string
 
@@ -275,7 +273,7 @@ messageStartTime := time.Now()
 		_, _, err := producer.SendMessage(msg)
 
 		if err != nil {
-			println(len(jsonString))
+			println(len(jsonString))	//which size has the complete message? Why is the added information to larger messages so different to small ones?
 			panic(err)
 		}
 

@@ -15,8 +15,8 @@ import (
 	"github.com/streadway/amqp"
 )
 
-var finishedconsumtion = make(chan bool, 10000)
-var finishedsending = make(chan bool, 10000)
+var finishedconsumtion = make(chan bool, 10)
+var finishedsending = make(chan bool, 10)
 var messages int
 var messageSize string
 var countprodcon int
@@ -150,6 +150,7 @@ func sender(sendQueue string) {
 			false,  // mandatory
 			false,  // immediate
 			amqp.Publishing{
+				DeliveryMode: amqp.Persistent,
 				ContentType:   "text/plain",
 				CorrelationId: corrID,
 				Body:          []byte(jsonOutput),
@@ -158,6 +159,9 @@ func sender(sendQueue string) {
 		failOnError(err, "Failed to publish a message")
 
 		messageEndTime := time.Since(messageStartTime).Seconds() * 1000
+		if i < 3{
+			fmt.Printf("Size of msg: %d \n", len(jsonOutput))
+		}
 		//   messageEndTimeTest := messageEndTime.Seconds()*1000
 		csvStruct.SendTime[i] = strconv.FormatFloat(messageEndTime, 'f', 6, 64)
 		//   completeTime = completeTime + messageEndTime
@@ -423,6 +427,7 @@ func conprod(consendID int, conQueueName string, prodQueueName string) {
 					false,   // mandatory
 					false,   // immediate
 					amqp.Publishing{
+						DeliveryMode: amqp.Persistent,
 						ContentType:   "text/plain",
 						CorrelationId: corrID,
 						Body:          []byte(jsonOutput),
