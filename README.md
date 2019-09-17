@@ -1,6 +1,6 @@
 # Kafka + RabbitMQ testsystem
 
-This repository contains a testsystem for messagebus systems (currently Apache kafka and RabbitMQ), which is used in my batchelor thesis.
+This repository contains a testsystem for messagebus systems (currently Apache kafka and RabbitMQ), which is used in my bachelor thesis.
 
 # Repository Description
 - contains bouth kafka and rabbitmq testfiles
