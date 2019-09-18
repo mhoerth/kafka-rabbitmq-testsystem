@@ -19,19 +19,33 @@ func main() {
 	compressionType := "json"
 	messageSize := ""
 	usedSystem := "kafka"
+	interations := 1
 
 	// fill commandline parameters in programm variables
 	for i := 0; i < len(os.Args); i++ {
 		fmt.Printf("%d : %s \n", i, os.Args[i])
+		
 		if len(os.Args) > 1{
 			if i == 1 {
+				interationsCMD, err := strconv.ParseInt(os.Args[i], 10, 64)
+				if err != nil {
+					log.Fatal("%s", err)
+				}
+				interations = int(interationsCMD)
+			}
+		}else{
+			println(" Missing interation amount, dafault is 1")
+		}
+		
+		if len(os.Args) > 2{
+			if i == 2 {
 				usedSystem = os.Args[i]
 			}
 		}else{
 			println("Missing Testsystem !!!")
 		}
-		if len(os.Args) > 2{
-			if i == 2 {
+		if len(os.Args) > 3{
+			if i == 3 {
 				messagesCMD, err := strconv.ParseInt(os.Args[i], 10, 64)
 				if err != nil {
 					log.Fatal("%s", err)
@@ -43,8 +57,8 @@ func main() {
 			messages = 1000
 		}
 
-		if len(os.Args) > 3{
-			if i == 3 {
+		if len(os.Args) > 4{
+			if i == 4 {
 				topictemp = os.Args[i]
 			}
 		}else{
@@ -52,8 +66,8 @@ func main() {
 			topictemp = "test"
 		}
 
-		if len(os.Args) > 4{
-			if i == 4 {
+		if len(os.Args) > 5{
+			if i == 5 {
 				countprodconCMD, err := strconv.ParseInt(os.Args[i], 10, 64)
 				if err != nil {
 					log.Fatal("%s", err)
@@ -65,8 +79,8 @@ func main() {
 			countprodcon = 0
 		}
 
-		if len(os.Args) > 5{
-			if i == 5 {
+		if len(os.Args) > 6{
+			if i == 6 {
 				if os.Args[i] != "" {
 					messageSize = os.Args[i]
 				} else {
@@ -78,8 +92,8 @@ func main() {
 			println("Missing binary message size, only sending Timevalue and 'funny message' !!!")
 		}
 
-		if len(os.Args) > 6{
-			if i == 6 {
+		if len(os.Args) > 7{
+			if i == 7 {
 				compressionType = os.Args[i]
 			}	
 		}else{
@@ -89,10 +103,10 @@ func main() {
 
 	// start test regarding to the commandline parameters given by the user
 	if usedSystem == "kafka"{
-		kafka.Kafka(messages, topictemp, countprodcon, compressionType, messageSize)
+		kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, messageSize)
 	}
 	if usedSystem == "rabbit"{
-		rabbit.Rabbit(messages, topictemp, countprodcon, compressionType, messageSize)
+		rabbit.Rabbit(interations, messages, topictemp, countprodcon, compressionType, messageSize)
 	}
 
 }

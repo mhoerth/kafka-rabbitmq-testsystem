@@ -23,6 +23,7 @@ type MyInfo struct {
 // Field: DecodingTime type string containing the timearray for the time needed to decode every message
 // Field: CompleteTime type float containing the time need to send and receive all messages
 type Csv struct{
+	Interation int
 	Testsystem string
 	Messages int
 	CountProdCon int

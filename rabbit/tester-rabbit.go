@@ -28,7 +28,7 @@ var csvStruct structs.Csv
 
 // Rabbit starts a RabbitMQ producer and consumer with the option to add up to 6 instances which are consuming and producing (changing the message a bit)
 // , to define an encoding format, and the size of the binary message included in the message sent to the message bus system, the queuename to send to and the message amount
-func Rabbit(messageamount int, queue string, conProdInst int, compression string, sizeOfMessaage string) {
+func Rabbit(interations int, messageamount int, queue string, conProdInst int, compression string, sizeOfMessaage string) {
 
 	queuetemp := queue
 	messages = messageamount
@@ -42,29 +42,32 @@ func Rabbit(messageamount int, queue string, conProdInst int, compression string
 	csvStruct.MessageSize = sizeOfMessaage
 	csvStruct.CompressionType = compression
 
-	starttime := time.Now()
-	// starttime2 := time.Now().UnixNano()
-	go sender((queuetemp + strconv.Itoa(0)))
-	// go conprod(1, "hello", "hello2")
-	// go conprod(2, "hello2", "hello3")
-	// go consumer("hello3")
-	go conprodstarter(queuetemp)
-	go consumer((queuetemp + strconv.Itoa(countprodcon)))
-
-	<-finishedsending
-	<-finishedconsumtion
-
-	elapsed := time.Since(starttime)
-	// endtime := float64((time.Now().UnixNano() - starttime2)) / float64(1000000)
-	fmt.Printf("Elapsed time for sending and consuming: %s \nAveragetime per message: %s \n", elapsed, elapsed/time.Duration(messages))
-	// fmt.Printf("Time gerechnet: %f \n", endtime)
-
+	for i:=0; i<interations; i++{
+		csvStruct.Interation = i
+		starttime := time.Now()
+		// starttime2 := time.Now().UnixNano()
+		go sender((queuetemp + strconv.Itoa(0)))
+		// go conprod(1, "hello", "hello2")
+		// go conprod(2, "hello2", "hello3")
+		// go consumer("hello3")
+		go conprodstarter(queuetemp)
+		go consumer((queuetemp + strconv.Itoa(countprodcon)))
+	
+		<-finishedsending
+		<-finishedconsumtion
+	
+		elapsed := time.Since(starttime)
+		// endtime := float64((time.Now().UnixNano() - starttime2)) / float64(1000000)
+		fmt.Printf("Elapsed time for sending and consuming: %s \nAveragetime per message: %s \n", elapsed, elapsed/time.Duration(messages))
+		// fmt.Printf("Time gerechnet: %f \n", endtime)
+		
+		println("Writing CSV file")
+		// // write file
+		output.Csv(csvStruct) //csvStruct is too large for a go routine	
+		time.Sleep(100000000) //wait 1 second before next testexecution
+	}
 	close(finishedsending)
 	close(finishedconsumtion)
-
-	println("Writing CSV file")
-	// // write file
-	output.Csv(csvStruct) //csvStruct is too large for a go routine
 }
 
 // starting and configuring a producer for rabbitmq

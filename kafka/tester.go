@@ -35,7 +35,7 @@ var csvStruct structs.Csv
 
 // Kafka starts a Kafka Producer and consumer with the option to add up to 6 instances which are consuming and producing (changing the message a bit)
 // , to define an encoding format, and the size of the binary message included in the message sent to the message bus system, the topicname to send to and the message amount
-func Kafka(messageamount int, topic string, conProdInst int, compression string, sizeOfMessaage string) {
+func Kafka(interations int, messageamount int, topic string, conProdInst int, compression string, sizeOfMessaage string) {
 
 	topictemp := topic
 	messages = messageamount
@@ -50,26 +50,30 @@ func Kafka(messageamount int, topic string, conProdInst int, compression string,
 	csvStruct.CompressionType = compression
 	
 	brokers = []string{"127.0.0.1:9092"}
-	configEnv(topictemp)
-	starttime := time.Now()
-	go producer(1, messages, (topictemp + strconv.Itoa(0)), 0)
-	// go consumergroup(1, (topictemp + strconv.Itoa(0)))
-	go prodconStarter(topictemp)
 
-	go consumer(1, messages, (topictemp + strconv.Itoa(countprodcon)), 0)
-	<-finishedsending
-	<-finishedconsumtion
-
-	elapsed := time.Since(starttime)
-	fmt.Printf("Elapsed time for sending and consuming: %s \nAveragetime per message: %s \n", elapsed, elapsed/time.Duration(messages))
-
+	for i:=0; i<interations; i++{
+		csvStruct.Interation = i
+		configEnv(topictemp)
+		starttime := time.Now()
+		go producer(1, messages, (topictemp + strconv.Itoa(0)), 0)
+		// go consumergroup(1, (topictemp + strconv.Itoa(0)))
+		go prodconStarter(topictemp)
+	
+		go consumer(1, messages, (topictemp + strconv.Itoa(countprodcon)), 0)
+		<-finishedsending
+		<-finishedconsumtion
+	
+		elapsed := time.Since(starttime)
+		fmt.Printf("Elapsed time for sending and consuming: %s \nAveragetime per message: %s \n", elapsed, elapsed/time.Duration(messages))
+			
+		println("Writing CSV file")
+		// go output.Csv("Kafka", messages, sendTime, consumeTime, encodingTime, countprodcon, consendTime, decodingTime, completeTime, messageSize, compressionType)
+		output.Csv(csvStruct) //csvStruct is too large for a go routine
+		deleteConfigEnv(topictemp)
+		time.Sleep(100000000) //wait 1 second before next testexecution
+	}
 	close(finishedsending)
 	close(finishedconsumtion)
-	
-	println("Writing CSV file")
-	// go output.Csv("Kafka", messages, sendTime, consumeTime, encodingTime, countprodcon, consendTime, decodingTime, completeTime, messageSize, compressionType)
-	output.Csv(csvStruct) //csvStruct is too large for a go routine
-	deleteConfigEnv(topictemp)
 }
 
 // cofigure the kafka test environment
