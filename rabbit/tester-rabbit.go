@@ -12,6 +12,8 @@ import (
 	"../structs"
 	"../output"
 
+	"encoding/base64"
+
 	"github.com/streadway/amqp"
 )
 
@@ -97,6 +99,7 @@ func sender(sendQueue string) {
 
 	var testifleinput []byte
 	var jsonMsg structs.MyInfo
+	var jsonOutput []byte
 
 	//   messageStartTime := time.Now()
 	if testifleinput == nil {
@@ -108,8 +111,13 @@ func sender(sendQueue string) {
 		}
 	}
 	jsonMsg.ScareMe = "Yes, please"
+	jsonOutput, _ = json.Marshal(&jsonMsg)
+	fmt.Printf("Size of msg(scareMe): %d \n", len(jsonOutput))
+
 	jsonMsg.Binaryfile = testifleinput
-	var jsonOutput []byte
+	jsonOutput, _ = json.Marshal(&jsonMsg)
+	fmt.Printf("Size of msg(ScareMe + Binaryfile): %d \n", len(jsonOutput))
+
 	var needTime int64
 
 	//   jsonString := (string)(jsonOutput)
@@ -126,6 +134,8 @@ func sender(sendQueue string) {
 			jsonMsg.TheTime = strconv.Itoa(int(time.Now().UnixNano())) //--> important to use this command twice, because of accourate time measurement !
 			startTime := time.Now().UnixNano()
 			jsonOutput, _ = json.Marshal(&jsonMsg)
+			fmt.Printf("Size of msg: %d \n", len(jsonOutput))
+
 			endTime := time.Now().UnixNano()
 
 			duration:= endTime - startTime
@@ -162,8 +172,36 @@ func sender(sendQueue string) {
 		failOnError(err, "Failed to publish a message")
 
 		messageEndTime := time.Since(messageStartTime).Seconds() * 1000
+
+		// for testing the impact of different messagesizes
+		// var jsonMsg2 structs.MyInfo
 		if i < 3{
+			// verify length of every single value in the json object
+			// fmt.Printf("Size of jsonMsg.ScareMe: %d \n", len(jsonMsg.ScareMe))
+			// fmt.Printf("Size of jsonMsg.Binaryfile: %d \n", len(jsonMsg.Binaryfile))
+			// fmt.Printf("Size of jsonMsg.TheTime: %d \n", len(jsonMsg.TheTime))
 			fmt.Printf("Size of msg: %d \n", len(jsonOutput))
+			// print the json object
+			// println(string(jsonOutput))
+			// fmt.Printf("Size of msg (string): %d \n", len(string(jsonOutput)))
+
+			// test messagesize with base64 encoding (json marshall encodes []byte to base64 string)
+			// jsonOutput, _ = json.Marshal(&jsonMsg2)
+			// fmt.Printf("Testoutput message without any information: %d \n", len(jsonOutput))
+			// println(string(jsonOutput))
+
+			// jsonMsg2.Binaryfile = testifleinput
+			// println(string(testifleinput))
+			// println(len(testifleinput))
+			// println()
+			// sEnc := base64.StdEncoding.EncodeToString(testifleinput)
+			// fmt.Println(sEnc)
+			// println(len(sEnc))
+			
+			// jsonOutput, _ = json.Marshal(&jsonMsg2)
+			// fmt.Printf("Testoutput message only with binaryfile: %d \n", len(jsonOutput))
+			// println(string(jsonOutput))
+
 		}
 		//   messageEndTimeTest := messageEndTime.Seconds()*1000
 		csvStruct.SendTime[i] = strconv.FormatFloat(messageEndTime, 'f', 6, 64)

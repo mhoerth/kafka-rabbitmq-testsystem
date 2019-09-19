@@ -7,6 +7,8 @@ import (
 	"log"
 	"os"
 	"math/rand"
+	"encoding/base64"
+
 )
 
 func main()  {
@@ -15,12 +17,25 @@ func main()  {
 
 func createTestFiles() {
 
-	size := int64(725 * 1024)
+	size := int64(1 * 1024)
 
-    token := make([]byte, size)
-    rand.Read(token)
+	token := make([]byte, size)
+	token2 := make([]byte, size)
+	// produce a file which has the given size in ascii encoding
+	rand.Read(token)
+	// produce a file which is nearly the given size in base64 encoding
+	var values []byte
+	
+	for i:=0; i < int(size); i++{
+			values = append(values, byte(rand.Intn(63)))
+			basebyte := base64.StdEncoding.EncodeToString(values)
+		if len(basebyte) > int(size) {
+			token2 = values
+			break
+		}
+	}
 
-	fd, err := os.Create("output-725Kibi-rand")
+	fd, err := os.Create("output-1Kibi-rand-base64")
 	if err != nil {
 		log.Fatal("Failed to create output")
 	}
@@ -28,7 +43,7 @@ func createTestFiles() {
 	// if err != nil {
 	// 	log.Fatal("Failed to seek")
 	// }
-	_, err = fd.Write(token)
+	_, err = fd.Write(token2)
 	if err != nil {
 		log.Fatal("Write failed")
 	}
