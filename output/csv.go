@@ -61,4 +61,7 @@ func Csv(csvStruct structs.Csv){
 	f.WriteString("CompleteTimeDuration;")
 	f.WriteString(strconv.FormatFloat(csvStruct.CompleteTime, 'f', 6, 64))
 	f.WriteString("; \n")
+	f.WriteString("Filesize;")
+	f.WriteString(strconv.FormatInt(csvStruct.Filesize, 10))
+	f.WriteString("; \n")
 }

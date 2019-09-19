@@ -112,11 +112,11 @@ func sender(sendQueue string) {
 	}
 	jsonMsg.ScareMe = "Yes, please"
 	jsonOutput, _ = json.Marshal(&jsonMsg)
-	fmt.Printf("Size of msg(scareMe): %d \n", len(jsonOutput))
+	// fmt.Printf("Size of msg(scareMe): %d \n", len(jsonOutput))
 
 	jsonMsg.Binaryfile = testifleinput
 	jsonOutput, _ = json.Marshal(&jsonMsg)
-	fmt.Printf("Size of msg(ScareMe + Binaryfile): %d \n", len(jsonOutput))
+	// fmt.Printf("Size of msg(ScareMe + Binaryfile): %d \n", len(jsonOutput))
 
 	var needTime int64
 
@@ -174,13 +174,14 @@ func sender(sendQueue string) {
 		messageEndTime := time.Since(messageStartTime).Seconds() * 1000
 
 		// for testing the impact of different messagesizes
-		// var jsonMsg2 structs.MyInfo
+		var jsonMsg2 structs.MyInfo
 		if i < 3{
 			// verify length of every single value in the json object
 			// fmt.Printf("Size of jsonMsg.ScareMe: %d \n", len(jsonMsg.ScareMe))
 			// fmt.Printf("Size of jsonMsg.Binaryfile: %d \n", len(jsonMsg.Binaryfile))
 			// fmt.Printf("Size of jsonMsg.TheTime: %d \n", len(jsonMsg.TheTime))
 			fmt.Printf("Size of msg: %d \n", len(jsonOutput))
+			csvStruct.Filesize = int64(len(jsonOutput))
 			// print the json object
 			// println(string(jsonOutput))
 			// fmt.Printf("Size of msg (string): %d \n", len(string(jsonOutput)))
@@ -190,13 +191,13 @@ func sender(sendQueue string) {
 			// fmt.Printf("Testoutput message without any information: %d \n", len(jsonOutput))
 			// println(string(jsonOutput))
 
-			// jsonMsg2.Binaryfile = testifleinput
+			jsonMsg2.Binaryfile = testifleinput
 			// println(string(testifleinput))
-			// println(len(testifleinput))
+			println(len(testifleinput))
 			// println()
-			// sEnc := base64.StdEncoding.EncodeToString(testifleinput)
+			sEnc := base64.StdEncoding.EncodeToString(testifleinput)
 			// fmt.Println(sEnc)
-			// println(len(sEnc))
+			println(len(sEnc))
 			
 			// jsonOutput, _ = json.Marshal(&jsonMsg2)
 			// fmt.Printf("Testoutput message only with binaryfile: %d \n", len(jsonOutput))

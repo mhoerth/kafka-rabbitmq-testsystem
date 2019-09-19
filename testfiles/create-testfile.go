@@ -17,7 +17,7 @@ func main()  {
 
 func createTestFiles() {
 
-	size := int64(1 * 1024)
+	size := int64(960 * 1024)
 
 	token := make([]byte, size)
 	token2 := make([]byte, size)
@@ -35,7 +35,7 @@ func createTestFiles() {
 		}
 	}
 
-	fd, err := os.Create("output-1Kibi-rand-base64")
+	fd, err := os.Create("output-960Kibi-rand-base64")
 	if err != nil {
 		log.Fatal("Failed to create output")
 	}

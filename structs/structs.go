@@ -35,4 +35,5 @@ type Csv struct{
 	EncodingTime [9][1000000]string	//encodingTime[0][] is reserved for 'normal' producer
 	DecodingTime [9][1000000]string //encodingTime[0][] is reserved for 'normal' consumer
 	CompleteTime float64
+	Filesize int64
 }

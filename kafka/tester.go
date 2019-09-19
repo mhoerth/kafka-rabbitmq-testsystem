@@ -284,6 +284,7 @@ messageStartTime := time.Now()
 		messageEndTime:= time.Since(messageStartTime).Seconds()*1000
 		if i < 3{
 			fmt.Printf("Size of msg: %d \n", len(jsonString))
+			csvStruct.Filesize = int64(len(jsonString))
 		}
 		csvStruct.SendTime[i] = strconv.FormatFloat(messageEndTime, 'f', 6, 64)
 		// completeTime = completeTime + messageEndTime
