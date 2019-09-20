@@ -68,6 +68,9 @@ func Rabbit(interations int, messageamount int, queue string, conProdInst int, c
 		output.Csv(csvStruct) //csvStruct is too large for a go routine	
 		time.Sleep(100000000) //wait 1 second before next testexecution
 	}
+}
+
+func CloeChannels(){
 	close(finishedsending)
 	close(finishedconsumtion)
 }

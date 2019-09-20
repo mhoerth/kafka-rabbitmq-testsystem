@@ -72,6 +72,9 @@ func Kafka(interations int, messageamount int, topic string, conProdInst int, co
 		deleteConfigEnv(topictemp)
 		time.Sleep(100000000) //wait 1 second before next testexecution
 	}
+}
+
+func CloeChannels(){
 	close(finishedsending)
 	close(finishedconsumtion)
 }

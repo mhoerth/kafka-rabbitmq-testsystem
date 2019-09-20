@@ -17,9 +17,17 @@ func main() {
 	messages := 1
 	countprodcon := 0
 	compressionType := "json"
-	messageSize := ""
+	messageSize := "testfiles/output-1Kibi-rand-baseEnc"
 	usedSystem := "kafka"
 	interations := 1
+
+	// testfiles
+	Kibi1 := "testfiles/output-1Kibi-rand-baseEnc"
+	Kibi10 := "testfiles/output-10Kibi-rand-baseEnc"
+	Kibi100 := "testfiles/output-100Kibi-rand-baseEnc"
+	Kibi500 := "testfiles/output-500Kibi-rand-baseEnc"
+	Kibi750 := "testfiles/output-750Kibi-rand-baseEnc"
+	Kibi960 := "testfiles/output-960Kibi-rand-baseEnc"
 
 	// fill commandline parameters in programm variables
 	for i := 0; i < len(os.Args); i++ {
@@ -102,11 +110,52 @@ func main() {
 	}
 
 	// start test regarding to the commandline parameters given by the user
+	if usedSystem == "test"{
+		// test kafka
+		kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, Kibi1)
+		kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, Kibi10)
+		kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, Kibi100)
+		kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, Kibi500)
+		kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, Kibi750)
+		kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, Kibi960)
+		kafka.CloeChannels()
+		// test rabbitmq
+		rabbit.Rabbit(interations, messages, topictemp, countprodcon, compressionType, Kibi1)
+		rabbit.Rabbit(interations, messages, topictemp, countprodcon, compressionType, Kibi10)
+		rabbit.Rabbit(interations, messages, topictemp, countprodcon, compressionType, Kibi100)
+		rabbit.Rabbit(interations, messages, topictemp, countprodcon, compressionType, Kibi500)
+		rabbit.Rabbit(interations, messages, topictemp, countprodcon, compressionType, Kibi750)
+		rabbit.Rabbit(interations, messages, topictemp, countprodcon, compressionType, Kibi960)
+		rabbit.CloeChannels()
+	}
+
 	if usedSystem == "kafka"{
-		kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, messageSize)
+		if messageSize == "test"{
+			kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, Kibi1)
+			kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, Kibi10)
+			kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, Kibi100)
+			kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, Kibi500)
+			kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, Kibi750)
+			kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, Kibi960)
+			kafka.CloeChannels()
+		}else{
+			kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, messageSize)
+			rabbit.CloeChannels()
+		}
 	}
 	if usedSystem == "rabbit"{
-		rabbit.Rabbit(interations, messages, topictemp, countprodcon, compressionType, messageSize)
+		if messageSize == "test"{
+			rabbit.Rabbit(interations, messages, topictemp, countprodcon, compressionType, Kibi1)
+			rabbit.Rabbit(interations, messages, topictemp, countprodcon, compressionType, Kibi10)
+			rabbit.Rabbit(interations, messages, topictemp, countprodcon, compressionType, Kibi100)
+			rabbit.Rabbit(interations, messages, topictemp, countprodcon, compressionType, Kibi500)
+			rabbit.Rabbit(interations, messages, topictemp, countprodcon, compressionType, Kibi750)
+			rabbit.Rabbit(interations, messages, topictemp, countprodcon, compressionType, Kibi960)
+			rabbit.CloeChannels()
+		}else{
+			rabbit.Rabbit(interations, messages, topictemp, countprodcon, compressionType, messageSize)
+			rabbit.CloeChannels()
+		}
 	}
 
 }
