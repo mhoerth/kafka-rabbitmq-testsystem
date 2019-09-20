@@ -143,14 +143,33 @@ func deleteConfigEnv(topictemplate string){
 
 	partitiontemp:= topictemplate
 	for i:=0; i<=countprodcon; i++{
-			err = admin.DeleteTopic((partitiontemp + strconv.Itoa(i)))
-			if err != nil {
-				panic(err)
-			}else{
+				// wait until topic is deleted !!!
+				for {
+					gotIt := false
+					//get all topic from cluster
+					topicList, err := admin.ListTopics()
+					for value := range topicList{
+						s := fmt.Sprintf("%s_", value)
+						fmt.Println(s)
+						if value == (partitiontemp + strconv.Itoa(i)){
+							err = admin.DeleteTopic((partitiontemp + strconv.Itoa(i)))
+							if err != nil {
+								panic(err)
+							}
+							fmt.Println("Wait a second")
+							time.Sleep(1000000000); //wait 1 second before next testexecution
+						}else{
+							gotIt = true
+							break
+						}
+					}
+					if gotIt == true{
+						break
+					}
+				}	
 				fmt.Printf("Topic %s deleted!!! \n", (partitiontemp + strconv.Itoa(i)))
 			}
 	}
-}
 
 // starts a producer instnce for kafka 
 func producer(producerid int, messages int, targetTopic1 string, targetPartition int32) {
