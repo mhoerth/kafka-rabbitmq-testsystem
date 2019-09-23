@@ -12,7 +12,7 @@ import (
 	"../structs"
 	"../output"
 
-	"encoding/base64"
+	// "encoding/base64"
 
 	"github.com/streadway/amqp"
 )
@@ -137,7 +137,7 @@ func sender(sendQueue string) {
 			jsonMsg.TheTime = strconv.Itoa(int(time.Now().UnixNano())) //--> important to use this command twice, because of accourate time measurement !
 			startTime := time.Now().UnixNano()
 			jsonOutput, _ = json.Marshal(&jsonMsg)
-			fmt.Printf("Size of msg: %d \n", len(jsonOutput))
+			// fmt.Printf("Size of msg: %d \n", len(jsonOutput))
 
 			endTime := time.Now().UnixNano()
 
@@ -177,7 +177,7 @@ func sender(sendQueue string) {
 		messageEndTime := time.Since(messageStartTime).Seconds() * 1000
 
 		// for testing the impact of different messagesizes
-		var jsonMsg2 structs.MyInfo
+		// var jsonMsg2 structs.MyInfo
 		if i < 3{
 			// verify length of every single value in the json object
 			// fmt.Printf("Size of jsonMsg.ScareMe: %d \n", len(jsonMsg.ScareMe))
@@ -194,13 +194,13 @@ func sender(sendQueue string) {
 			// fmt.Printf("Testoutput message without any information: %d \n", len(jsonOutput))
 			// println(string(jsonOutput))
 
-			jsonMsg2.Binaryfile = testifleinput
-			// println(string(testifleinput))
-			println(len(testifleinput))
+			// jsonMsg2.Binaryfile = testifleinput
+			// // println(string(testifleinput))
+			// println(len(testifleinput))
 			// println()
-			sEnc := base64.StdEncoding.EncodeToString(testifleinput)
-			// fmt.Println(sEnc)
-			println(len(sEnc))
+			// sEnc := base64.StdEncoding.EncodeToString(testifleinput)
+			// // fmt.Println(sEnc)
+			// println(len(sEnc))
 			
 			// jsonOutput, _ = json.Marshal(&jsonMsg2)
 			// fmt.Printf("Testoutput message only with binaryfile: %d \n", len(jsonOutput))
