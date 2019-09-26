@@ -329,6 +329,9 @@ func consumer(consumerID int, messages int, targetTopic1 string, targetPartition
 	config := sarama.NewConfig()
 	config.Consumer.Return.Errors = true
 
+	// set consumtion size / messages
+	config.Consumer.Fetch.Max = int32(csvStruct.Filesize)
+
 	// Specify brokers address. This is default one
 	// brokers := []string{"127.0.0.1:9092"}
 
@@ -605,6 +608,8 @@ func prodcon(consendID int, messages int, targetTopic1 string, conPartition int3
 	configProducer.Producer.Flush.MaxMessages = 1
 	//config consumer
 	configConsumer.Consumer.Return.Errors = true
+	// set consumtion size / messages
+	configConsumer.Consumer.Fetch.Max = int32(csvStruct.Filesize)
 
 	// brokers := []string{"127.0.0.1:9092"}
 

@@ -238,6 +238,14 @@ func consumer(conQueue string) {
 	)
 	failOnError(err, "Failed to declare a queue")
 
+// set QoS
+	err = ch.Qos(
+		1,		//prefetch count
+		0,		//prefetch size
+	false,		//global
+	)
+	failOnError(err, "Failed to set QoS")
+
 	// get messages
 	msgs, err := ch.Consume( //kann alleine verwendet werden, da derzeit nach dem Konsumieren der Nachrichten diese gelöscht werden (bei persistenter Speicherung führt das zu Fehlerhaften Messungen)
 		q.Name, // queue
@@ -351,6 +359,14 @@ func conprod(consendID int, conQueueName string, prodQueueName string) {
 		nil,          // arguments
 	)
 	failOnError(err, "Failed to declare a queue")
+
+	// set QoS
+	err = chC.Qos(
+		1,		//prefetch count
+		0,		//prefetch size
+	false,		//global
+	)
+	failOnError(err, "Failed to set QoS")
 
 	// producer channel and queue
 	chP, err := conn.Channel()
