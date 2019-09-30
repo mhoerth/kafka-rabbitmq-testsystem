@@ -34,6 +34,7 @@ func Csv(csvStruct structs.Csv){
 	}
 	f.WriteString("ConsumerTime;")
 	f.WriteString("ConsumerDecodingTime;")
+	f.WriteString("RoundTripTime;")
 	f.WriteString("\n")
 
 	for i:=0; i < csvStruct.Messages; i++{
@@ -54,7 +55,8 @@ func Csv(csvStruct structs.Csv){
 		}
 		// f.WriteString("ConsumerTime: ")
 		f.WriteString(csvStruct.ConsumeTime[i] + ";")
-		f.WriteString(csvStruct.DecodingTime[0][i])
+		f.WriteString(csvStruct.DecodingTime[0][i] + ";")
+		f.WriteString(csvStruct.RoundTripTime[i])
 		f.WriteString("; \n")
 	}
 
@@ -64,4 +66,23 @@ func Csv(csvStruct structs.Csv){
 	f.WriteString("Filesize(byte);")
 	f.WriteString(strconv.FormatInt(csvStruct.Filesize, 10))
 	f.WriteString("; \n")
+}
+// ComputeRoundTripTime computes the RoundTripTime out of the SendTime and the ConsumeTime stored in arrays during the measurement
+func ComputeRoundTripTime(sendTimes[1000000] string, consumeTimes[1000000]string, messages int) ([1000000]string) {
+	var roundTripTime [1000000]string
+	for i:=0; i<messages; i++{
+		consumeTime, err := strconv.ParseInt(consumeTimes[i], 10, 64)
+		if err != nil{
+			panic(err)
+		}
+		sendTime, err := strconv.ParseInt(sendTimes[i], 10, 64)
+		if err != nil{
+			panic(err)
+		}
+		roundTrip := consumeTime - sendTime
+		roundTripMS := float64(roundTrip) / float64(1000000) //Nanosekunden in Milisekunden
+		roundTripTime[i] = strconv.FormatFloat(roundTripMS, 'f', 6, 64)
+	}
+
+	return roundTripTime
 }

@@ -69,6 +69,9 @@ func Kafka(interations int, messageamount int, topic string, conProdInst int, co
 			
 		println("Writing CSV file")
 		// go output.Csv("Kafka", messages, sendTime, consumeTime, encodingTime, countprodcon, consendTime, decodingTime, completeTime, messageSize, compressionType)
+		// compute RoundTripTime
+		csvStruct.RoundTripTime = output.ComputeRoundTripTime(csvStruct.SendTimeStamps, csvStruct.ConsumeTimeStamps, csvStruct.Messages)
+		// write csv file
 		output.Csv(csvStruct) //csvStruct is too large for a go routine
 		deleteConfigEnv(topictemp)
 		time.Sleep(100000000) //wait 1 second before next testexecution
@@ -145,6 +148,11 @@ func deleteConfigEnv(topictemplate string){
 	partitiontemp:= topictemplate
 	for i:=0; i<=countprodcon; i++{
 				// wait until topic is deleted !!!
+
+
+				// HIER STIMMT WAS NICHT; ES WERDEN NUR BIS AUF DAS LETZTE TOPIC ALLE ANDEREN GELÖSCHT; SORGT FÜR ZEITMESSFEHLER !!!!
+
+
 				for {
 					gotIt := false
 					//get all topic from cluster
@@ -160,6 +168,7 @@ func deleteConfigEnv(topictemplate string){
 							fmt.Println("Wait a second")
 							time.Sleep(1000000000); //wait 1 second before next testexecution
 						}else{
+							println(len(topicList))
 							gotIt = true
 							break
 						}
@@ -311,6 +320,11 @@ messageStartTime := time.Now()
 		}
 
 		messageEndTime:= time.Since(messageStartTime).Seconds()*1000
+
+		// // set start of the round trip time
+		// csvStruct.RoundTripTime [i] = strconv.FormatFloat(float64(messageStartTime.UnixNano()), 'f', 6, 64)
+		csvStruct.SendTimeStamps[i] = strconv.FormatInt(messageStartTime.UnixNano(), 10)
+
 		if i < 3{
 			fmt.Printf("Size of msg: %d \n", len(jsonString))
 			csvStruct.Filesize = int64(len(jsonString))
@@ -378,7 +392,15 @@ func consumer(consumerID int, messages int, targetTopic1 string, targetPartition
 	msg := <-consumer.Messages() //--> muss diese funktion immer wieder aufgerufen werden, oder consumiert sie alle Nachrichten (wie ist es bei RabbitMQ???)
 
 		messageReceivedTime := time.Now().UnixNano()	// --> wenn die Zeit hier genommen wird, wird die Laufzeit der Forschleife mit eingerechnet
-		// println(string(msg.Value))// --> falche Zeiten kommen hier bereits an !!!!!
+		println(string(msg.Value))// --> falche Zeiten kommen hier bereits an !!!!!
+
+		// // set start of the round trip time
+		// beginTime, err := strconv.ParseFloat(csvStruct.RoundTripTime [i], 64)
+		// if err != nil{
+		// 	panic(err)
+		// }
+		// csvStruct.RoundTripTime [i] = strconv.FormatFloat((float64(messageReceivedTime) - beginTime), 'f', 6, 64)
+		csvStruct.ConsumeTimeStamps[i] = strconv.FormatInt(messageReceivedTime, 10)
 
 		keyString := string(msg.Key)
 
@@ -412,6 +434,7 @@ func consumer(consumerID int, messages int, targetTopic1 string, targetPartition
 			csvStruct.DecodingTime[0][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
 		}
 
+		// println(jsonRecord.TheTime)
 		timevalue, err := strconv.ParseInt(jsonRecord.TheTime, 10, 64)
 		if err != nil {
 			log.Fatal("%s", err)
@@ -428,11 +451,14 @@ func consumer(consumerID int, messages int, targetTopic1 string, targetPartition
 		// completeTime = completeTime + durationMs	 
 		// compute complete time
 		// correct the complete time --> complete time for sending and receiving != sum(sendtime + receivetime of all messages)
-		sessionEndtime := time.Now().UnixNano()
-		sessionEndtimeMS := float64(sessionEndtime) / float64(1000000) //Nanosekunden in Milisekunden
-		sessionStarttimeMS := float64(sessionStarttime) / float64(1000000) //Nanosekunden in Milisekunden
-		sendReceiveDuration := sessionEndtimeMS - sessionStarttimeMS
-		csvStruct.CompleteTime = sendReceiveDuration
+		if i == (sendmessages -1){
+			sessionEndtime := time.Now().UnixNano()
+			sendReceiveDuration := sessionEndtime - sessionStarttime
+			// sessionEndtimeMS := float64(sessionEndtime) / float64(1000000) //Nanosekunden in Milisekunden
+			// sessionStarttimeMS := float64(sessionStarttime) / float64(1000000) //Nanosekunden in Milisekunden
+			sendReceiveDurationMs := float64(sendReceiveDuration) / float64(1000000) //Nanosekunden in Milisekunden
+			csvStruct.CompleteTime = sendReceiveDurationMs	
+		}
 
 
 		// fmt.Printf("got myInfo: %d \n", i)
@@ -668,14 +694,16 @@ func prodcon(consendID int, messages int, targetTopic1 string, conPartition int3
 	sendmessages := messages
 	starttime := time.Now()
 
-	// read the message
-	msg := <-consumerinst.Messages()
-
 	for i := 0; i < sendmessages; i++ {
 		// fmt.Print(" ... waiting for message ...")
+			
+		// read the message
+		msg := <-consumerinst.Messages()
+
 		messageReceivedTime := time.Now().UnixNano()	// --> wenn die Zeit hier genommen wird, wird die Laufzeit der Forschleife mit eingerechnet
 
 		keyString := string(msg.Key)
+		// println(string(msg.Value))
 
 		if keyString != "myInfo" {
 			fmt.Println("received key is not myInfo ... sorry ... message ignore")
