@@ -78,6 +78,9 @@ func DecodeAvro(conProdID int, messageID int, message []byte) (structs.MyInfo, i
 	
 	// decode this shit to verify
 	ocfr, err := goavro.NewOCFReader(b)
+	if err != nil{
+		panic(err)
+	}
 
 	var decoded interface{}
 	// println(ocfr.Scan()) //--> if true, messages available

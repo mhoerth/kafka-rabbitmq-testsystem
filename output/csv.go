@@ -18,7 +18,7 @@ func Csv(csvStruct structs.Csv){
 	csvStruct.MessageSize = strings.Join(re.FindAllString(csvStruct.MessageSize, -1), "")
 	
 	// create outputfile with set parameters to identify the test after programm execution
-	f, err := os.Create(strconv.Itoa(csvStruct.Interation) + "_" + csvStruct.Testsystem + "_" + strconv.Itoa(csvStruct.CountProdCon) + "_" + csvStruct.CompressionType + "_" + strconv.Itoa(csvStruct.Messages) + "_" + csvStruct.MessageSize + "Kibi" + ".csv")
+	f, err := os.Create(strconv.Itoa(csvStruct.Interation) + "_" + csvStruct.Testsystem + "_" + strconv.Itoa(csvStruct.CountProdCon) + "_" + csvStruct.CompressionType + "_" + strconv.Itoa(csvStruct.Messages) + "_" + csvStruct.MessageSize + "Kibi" + "_" + strconv.Itoa(csvStruct.MsDelay) + "(ms)Delay" + ".csv")
 	if err != nil{
 		panic(err)
 	}
@@ -28,7 +28,7 @@ func Csv(csvStruct structs.Csv){
 	f.WriteString("ProducerSendTime;")
 	f.WriteString("ProducerEncodingTime;")
 	if csvStruct.CountProdCon > 0{
-		f.WriteString("Consumer&ProducerSendTime;")
+		f.WriteString("Consumer&ProducerConsumeTime;")
 		f.WriteString("Consumer&ProducerEncodeTime;")
 		f.WriteString("Consumer&ProducerDecodeTime;")	
 	}
@@ -47,7 +47,7 @@ func Csv(csvStruct structs.Csv){
 			f.WriteString(csvStruct.EncodingTime[cp][i] + ";")
 			f.WriteString(csvStruct.DecodingTime[cp][i])
 			if(cp < csvStruct.CountProdCon){
-				f.WriteString("; \n"  + strconv.Itoa(i) +  "; ;")
+				f.WriteString("; \n"  + strconv.Itoa(i) +  "; ; ;")
 			}else{
 				f.WriteString(";")
 			}
@@ -61,7 +61,7 @@ func Csv(csvStruct structs.Csv){
 	f.WriteString("CompleteTimeDuration;")
 	f.WriteString(strconv.FormatFloat(csvStruct.CompleteTime, 'f', 6, 64))
 	f.WriteString("; \n")
-	f.WriteString("Filesize;")
+	f.WriteString("Filesize(byte);")
 	f.WriteString(strconv.FormatInt(csvStruct.Filesize, 10))
 	f.WriteString("; \n")
 }

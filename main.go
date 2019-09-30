@@ -20,6 +20,7 @@ func main() {
 	messageSize := "testfiles/output-1Kibi-rand-baseEnc"
 	usedSystem := "kafka"
 	interations := 1
+	delayTime := 100
 
 	// testfiles
 	Kibi1 := "testfiles/output-1Kibi-rand-baseEnc"
@@ -67,6 +68,18 @@ func main() {
 
 		if len(os.Args) > 4{
 			if i == 4 {
+				delayTimeCMD, err := strconv.ParseInt(os.Args[i], 10, 64)
+				if err != nil {
+					log.Fatal("%s", err)
+				}
+				delayTime = int(delayTimeCMD)
+			}	
+		}else{
+			println("Missing delayTime in ms between messages, -- using default (100 ms) !!!")
+		}
+
+		if len(os.Args) > 5{
+			if i == 5 {
 				topictemp = os.Args[i]
 			}
 		}else{
@@ -74,8 +87,8 @@ func main() {
 			topictemp = "test"
 		}
 
-		if len(os.Args) > 5{
-			if i == 5 {
+		if len(os.Args) > 6{
+			if i == 6 {
 				countprodconCMD, err := strconv.ParseInt(os.Args[i], 10, 64)
 				if err != nil {
 					log.Fatal("%s", err)
@@ -87,8 +100,8 @@ func main() {
 			countprodcon = 0
 		}
 
-		if len(os.Args) > 6{
-			if i == 6 {
+		if len(os.Args) > 7{
+			if i == 7 {
 				if os.Args[i] != "" {
 					messageSize = os.Args[i]
 				} else {
@@ -100,61 +113,62 @@ func main() {
 			println("Missing binary message size, only sending Timevalue and 'funny message' !!!")
 		}
 
-		if len(os.Args) > 7{
-			if i == 7 {
+		if len(os.Args) > 8{
+			if i == 8 {
 				compressionType = os.Args[i]
 			}	
 		}else{
 			println("Missing compression type, -- using default (json) !!!")
 		}
+
 	}
 
 	// start test regarding to the commandline parameters given by the user
 	if usedSystem == "test"{
 		// test kafka
-		kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, Kibi1)
-		kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, Kibi10)
-		kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, Kibi100)
-		kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, Kibi500)
-		kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, Kibi750)
-		kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, Kibi960)
-		kafka.CloeChannels()
+		kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, Kibi1, delayTime)
+		kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, Kibi10, delayTime)
+		kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, Kibi100, delayTime)
+		kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, Kibi500, delayTime)
+		kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, Kibi750, delayTime)
+		kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, Kibi960, delayTime)
+		kafka.CloseChannels()
 		// test rabbitmq
-		rabbit.Rabbit(interations, messages, topictemp, countprodcon, compressionType, Kibi1)
-		rabbit.Rabbit(interations, messages, topictemp, countprodcon, compressionType, Kibi10)
-		rabbit.Rabbit(interations, messages, topictemp, countprodcon, compressionType, Kibi100)
-		rabbit.Rabbit(interations, messages, topictemp, countprodcon, compressionType, Kibi500)
-		rabbit.Rabbit(interations, messages, topictemp, countprodcon, compressionType, Kibi750)
-		rabbit.Rabbit(interations, messages, topictemp, countprodcon, compressionType, Kibi960)
-		rabbit.CloeChannels()
+		rabbit.Rabbit(interations, messages, topictemp, countprodcon, compressionType, Kibi1, delayTime)
+		rabbit.Rabbit(interations, messages, topictemp, countprodcon, compressionType, Kibi10, delayTime)
+		rabbit.Rabbit(interations, messages, topictemp, countprodcon, compressionType, Kibi100, delayTime)
+		rabbit.Rabbit(interations, messages, topictemp, countprodcon, compressionType, Kibi500, delayTime)
+		rabbit.Rabbit(interations, messages, topictemp, countprodcon, compressionType, Kibi750, delayTime)
+		rabbit.Rabbit(interations, messages, topictemp, countprodcon, compressionType, Kibi960, delayTime)
+		rabbit.CloseChannels()
 	}
 
 	if usedSystem == "kafka"{
 		if messageSize == "test"{
-			kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, Kibi1)
-			kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, Kibi10)
-			kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, Kibi100)
-			kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, Kibi500)
-			kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, Kibi750)
-			kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, Kibi960)
-			kafka.CloeChannels()
+			kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, Kibi1, delayTime)
+			kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, Kibi10, delayTime)
+			kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, Kibi100, delayTime)
+			kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, Kibi500, delayTime)
+			kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, Kibi750, delayTime)
+			kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, Kibi960, delayTime)
+			kafka.CloseChannels()
 		}else{
-			kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, messageSize)
-			rabbit.CloeChannels()
+			kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, messageSize, delayTime)
+			rabbit.CloseChannels()
 		}
 	}
 	if usedSystem == "rabbit"{
 		if messageSize == "test"{
-			rabbit.Rabbit(interations, messages, topictemp, countprodcon, compressionType, Kibi1)
-			rabbit.Rabbit(interations, messages, topictemp, countprodcon, compressionType, Kibi10)
-			rabbit.Rabbit(interations, messages, topictemp, countprodcon, compressionType, Kibi100)
-			rabbit.Rabbit(interations, messages, topictemp, countprodcon, compressionType, Kibi500)
-			rabbit.Rabbit(interations, messages, topictemp, countprodcon, compressionType, Kibi750)
-			rabbit.Rabbit(interations, messages, topictemp, countprodcon, compressionType, Kibi960)
-			rabbit.CloeChannels()
+			rabbit.Rabbit(interations, messages, topictemp, countprodcon, compressionType, Kibi1, delayTime)
+			rabbit.Rabbit(interations, messages, topictemp, countprodcon, compressionType, Kibi10, delayTime)
+			rabbit.Rabbit(interations, messages, topictemp, countprodcon, compressionType, Kibi100, delayTime)
+			rabbit.Rabbit(interations, messages, topictemp, countprodcon, compressionType, Kibi500, delayTime)
+			rabbit.Rabbit(interations, messages, topictemp, countprodcon, compressionType, Kibi750, delayTime)
+			rabbit.Rabbit(interations, messages, topictemp, countprodcon, compressionType, Kibi960, delayTime)
+			rabbit.CloseChannels()
 		}else{
-			rabbit.Rabbit(interations, messages, topictemp, countprodcon, compressionType, messageSize)
-			rabbit.CloeChannels()
+			rabbit.Rabbit(interations, messages, topictemp, countprodcon, compressionType, messageSize, delayTime)
+			rabbit.CloseChannels()
 		}
 	}
 

@@ -35,7 +35,7 @@ var csvStruct structs.Csv
 
 // Kafka starts a Kafka Producer and consumer with the option to add up to 6 instances which are consuming and producing (changing the message a bit)
 // , to define an encoding format, and the size of the binary message included in the message sent to the message bus system, the topicname to send to and the message amount
-func Kafka(interations int, messageamount int, topic string, conProdInst int, compression string, sizeOfMessaage string) {
+func Kafka(interations int, messageamount int, topic string, conProdInst int, compression string, sizeOfMessaage string, delayTime int) {
 
 	topictemp := topic
 	messages = messageamount
@@ -48,6 +48,7 @@ func Kafka(interations int, messageamount int, topic string, conProdInst int, co
 	csvStruct.CountProdCon = conProdInst
 	csvStruct.MessageSize = sizeOfMessaage
 	csvStruct.CompressionType = compression
+	csvStruct.MsDelay = delayTime
 	
 	brokers = []string{"127.0.0.1:9092"}
 
@@ -73,8 +74,8 @@ func Kafka(interations int, messageamount int, topic string, conProdInst int, co
 		time.Sleep(100000000) //wait 1 second before next testexecution
 	}
 }
-
-func CloeChannels(){
+// CloseChannels is used channels, needed for the feature to do multiple interations with he same config provided with one call out of the main function
+func CloseChannels(){
 	close(finishedsending)
 	close(finishedconsumtion)
 }
@@ -244,7 +245,13 @@ func producer(producerid int, messages int, targetTopic1 string, targetPartition
 
 	for i := 0; i < sendmessages; i++ {
 
-
+		// wait for each send interval --> create a fixed transfer rate of messages
+		if i != 0{
+			// if (i % 100) == 0{
+				// println("Wait 100 msec before sending again 100 messages")
+				time.Sleep(time.Duration(csvStruct.MsDelay) * time.Millisecond)
+			// }
+		}
 		// select compression / message format
 		switch compressionType {
 		case "json":
@@ -371,6 +378,7 @@ func consumer(consumerID int, messages int, targetTopic1 string, targetPartition
 	msg := <-consumer.Messages() //--> muss diese funktion immer wieder aufgerufen werden, oder consumiert sie alle Nachrichten (wie ist es bei RabbitMQ???)
 
 		messageReceivedTime := time.Now().UnixNano()	// --> wenn die Zeit hier genommen wird, wird die Laufzeit der Forschleife mit eingerechnet
+		// println(string(msg.Value))// --> falche Zeiten kommen hier bereits an !!!!!
 
 		keyString := string(msg.Key)
 
@@ -703,7 +711,7 @@ func prodcon(consendID int, messages int, targetTopic1 string, conPartition int3
 
 		duration:= messageReceivedTime - timevalue
 		durationMs := float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
-
+		// println(durationMs)
 		csvStruct.ConSendTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
 		// completeTime = completeTime + durationMs	 
 
@@ -750,6 +758,15 @@ func prodcon(consendID int, messages int, targetTopic1 string, conPartition int3
 			Partition: targetPartition,
 		}
 
+
+		// wait for each send interval --> create a fixed transfer rate of messages
+		if i != 0{
+			// if (i % 100) == 0{
+				// println("Wait 100 msec before sending again 100 messages")
+				time.Sleep(time.Duration(csvStruct.MsDelay) * time.Millisecond)
+			// }
+		}
+
 		// fmt.Println("Sending Message : ")
 		// fmt.Println(msg)
 		messageStartTime := time.Now()
@@ -783,7 +800,7 @@ func prodconStarter(topictemplate string){
 	topictemp := topictemplate
 	for i:=1; i <= countprodcon; i++{
 		fmt.Printf("ProdCon %d in starting process \n", i)
-		go prodcon(i, messages, (topictemp + strconv.Itoa(i-1)), 1, (topictemp + strconv.Itoa(i)), 0, compressionType)
+		go prodcon(i, messages, (topictemp + strconv.Itoa(i-1)), 0, (topictemp + strconv.Itoa(i)), 0, compressionType)
 	}
 }
 

@@ -30,7 +30,7 @@ var csvStruct structs.Csv
 
 // Rabbit starts a RabbitMQ producer and consumer with the option to add up to 6 instances which are consuming and producing (changing the message a bit)
 // , to define an encoding format, and the size of the binary message included in the message sent to the message bus system, the queuename to send to and the message amount
-func Rabbit(interations int, messageamount int, queue string, conProdInst int, compression string, sizeOfMessaage string) {
+func Rabbit(interations int, messageamount int, queue string, conProdInst int, compression string, sizeOfMessaage string, delayTime int) {
 
 	queuetemp := queue
 	messages = messageamount
@@ -43,6 +43,7 @@ func Rabbit(interations int, messageamount int, queue string, conProdInst int, c
 	csvStruct.CountProdCon = conProdInst
 	csvStruct.MessageSize = sizeOfMessaage
 	csvStruct.CompressionType = compression
+	csvStruct.MsDelay = delayTime
 
 	for i:=0; i<interations; i++{
 		csvStruct.Interation = i
@@ -63,16 +64,57 @@ func Rabbit(interations int, messageamount int, queue string, conProdInst int, c
 		fmt.Printf("Elapsed time for sending and consuming: %s \nAveragetime per message: %s \n", elapsed, elapsed/time.Duration(messages))
 		// fmt.Printf("Time gerechnet: %f \n", endtime)
 		
+		// delete queues
+		// deleteQueues(queuetemp, countprodcon)
+
 		println("Writing CSV file")
 		// // write file
 		output.Csv(csvStruct) //csvStruct is too large for a go routine	
-		time.Sleep(100000000) //wait 1 second before next testexecution
+		time.Sleep(1000000000) //wait 1 second before next testexecution
 	}
 }
-
-func CloeChannels(){
+// CloseChannels is used channels, needed for the feature to do multiple interations with he same config provided with one call out of the main function
+func CloseChannels(){
 	close(finishedsending)
 	close(finishedconsumtion)
+}
+
+// work in progress, currently queues are deleted automatically if not used anymore
+func deleteQueues(queuetemp string, queues int){
+		// connect to rabbitmq
+		conn, err := amqp.Dial("amqp://rabbitmq:rabbitmq@localhost:5672/")
+		// check for failover during connecting to rabbitmq
+		failOnError(err, "Failed to connect to RabbitMQ")
+		defer conn.Close()
+		// connect o channel for API config
+		ch, err := conn.Channel()
+		failOnError(err, "Failed to open a channel")
+		defer ch.Close()
+
+		queue:= queuetemp
+
+			for i:=0; i<=queues; i++{
+				queue = queue + strconv.Itoa(i)
+				println(queue)
+				for {
+				//delete queue for sending messages
+				_, err := ch.QueueDelete(
+					queue, // name
+					true,     // ifUnused
+					true,     // if empty
+					true,     // noWait
+				)
+				// failOnError(err, "Failed to delete a queue")
+				if (err != nil){
+					fmt.Printf("Queue deleted: %s \n", queue)
+					break
+				}else{
+					println("Wait a second")
+					time.Sleep(1000000000) //wait 1 second before next testexecution
+				}
+			}
+		}
+
 }
 
 // starting and configuring a producer for rabbitmq
@@ -91,7 +133,7 @@ func sender(sendQueue string) {
 	q, err := ch.QueueDeclare(
 		sendQueue, // name
 		true,     // durable
-		false,     // delete when unused
+		true,     // delete when unused
 		false,     // exclusive
 		false,     // no-wait
 		nil,       // arguments
@@ -130,6 +172,14 @@ func sender(sendQueue string) {
 	for i := 0; i < messages; i++ {
 
 		corrID := "myinfo: " + strconv.Itoa(i)
+
+		// wait for each send interval --> create a fixed transfer rate of messages
+		if i != 0{
+			// if (i % 100) == 0{
+				// println("Wait 100 msec before sending again 100 messages")
+				time.Sleep(time.Duration(csvStruct.MsDelay) * time.Millisecond)
+			// }
+		}
 
 		// select compression / message format
 		switch compressionType {
@@ -231,7 +281,7 @@ func consumer(conQueue string) {
 	q, err := ch.QueueDeclare(
 		conQueue, // name
 		true,    // durable
-		false,    // delete when usused
+		true,    // delete when usused
 		false,    // exclusive
 		false,    // no-wait
 		nil,      // arguments
@@ -353,7 +403,7 @@ func conprod(consendID int, conQueueName string, prodQueueName string) {
 	qc, err := chC.QueueDeclare(
 		conQueueName, // name
 		true,        // durable
-		false,        // delete when usused
+		true,        // delete when usused
 		false,        // exclusive
 		false,        // no-wait
 		nil,          // arguments
@@ -376,8 +426,8 @@ func conprod(consendID int, conQueueName string, prodQueueName string) {
 	//create queue for sending messages
 	qp, err := chP.QueueDeclare(
 		prodQueueName, // name
-		false,         // durable
-		false,         // delete when unused
+		true,         // durable
+		true,         // delete when unused
 		false,         // exclusive
 		false,         // no-wait
 		nil,           // arguments
@@ -479,6 +529,14 @@ func conprod(consendID int, conQueueName string, prodQueueName string) {
 				default:
 					jsonRecord.TheTime = strconv.Itoa(int(time.Now().UnixNano()))
 					jsonOutput, _ = json.Marshal(&jsonRecord)
+				}
+
+				// wait for each send interval --> create a fixed transfer rate of messages
+				if i != 0{
+					// if (i % 100) == 0{
+						// println("Wait 100 msec before sending again 100 messages")
+						time.Sleep(time.Duration(csvStruct.MsDelay) * time.Millisecond)
+						// }
 				}
 
 				messageStartTime := time.Now()
