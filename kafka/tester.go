@@ -154,7 +154,7 @@ func deleteConfigEnv(topictemplate string){
 
 
 				for {
-					gotIt := false
+					deleted := false
 					//get all topic from cluster
 					topicList, err := admin.ListTopics()
 					for value := range topicList{
@@ -166,14 +166,11 @@ func deleteConfigEnv(topictemplate string){
 								panic(err)
 							}
 							fmt.Println("Wait a second")
+							deleted = true
 							time.Sleep(1000000000); //wait 1 second before next testexecution
-						}else{
-							println(len(topicList))
-							gotIt = true
-							break
 						}
 					}
-					if gotIt == true{
+					if deleted == false{
 						break
 					}
 				}	
@@ -261,6 +258,11 @@ func producer(producerid int, messages int, targetTopic1 string, targetPartition
 				time.Sleep(time.Duration(csvStruct.MsDelay) * time.Millisecond)
 			// }
 		}
+		// set sessionStartTime (Time the first message (i==0) was send)
+		if i == 0{
+			sessionStarttime = time.Now().UnixNano()
+		}
+		
 		// select compression / message format
 		switch compressionType {
 		case "json":
@@ -392,7 +394,7 @@ func consumer(consumerID int, messages int, targetTopic1 string, targetPartition
 	msg := <-consumer.Messages() //--> muss diese funktion immer wieder aufgerufen werden, oder consumiert sie alle Nachrichten (wie ist es bei RabbitMQ???)
 
 		messageReceivedTime := time.Now().UnixNano()	// --> wenn die Zeit hier genommen wird, wird die Laufzeit der Forschleife mit eingerechnet
-		println(string(msg.Value))// --> falche Zeiten kommen hier bereits an !!!!!
+		// println(string(msg.Value))// --> falche Zeiten kommen hier bereits an !!!!!
 
 		// // set start of the round trip time
 		// beginTime, err := strconv.ParseFloat(csvStruct.RoundTripTime [i], 64)
@@ -439,10 +441,10 @@ func consumer(consumerID int, messages int, targetTopic1 string, targetPartition
 		if err != nil {
 			log.Fatal("%s", err)
 		}
-		// set sessionStartTime (Time the first message (i==0) was send)
-		if i == 0{
-			sessionStarttime = timevalue
-		}
+		// // set sessionStartTime (Time the first message (i==0) was send)
+		// if i == 0{
+		// 	sessionStarttime = timevalue
+		// }
 
 		duration:= messageReceivedTime - timevalue
 		durationMs := float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
@@ -750,6 +752,14 @@ func prodcon(consendID int, messages int, targetTopic1 string, conPartition int3
 
 		jsonString := ""
 
+		// wait for each send interval --> create a fixed transfer rate of messages
+		// if i != 0{
+		// 	// if (i % 100) == 0{
+		// 		// println("Wait 100 msec before sending again 100 messages")
+		// 		time.Sleep(time.Duration(csvStruct.MsDelay) * time.Millisecond)
+		// 	// }
+		// }	
+
 		// select compression / message format
 		switch compressionType {
 		case "json":
@@ -784,15 +794,6 @@ func prodcon(consendID int, messages int, targetTopic1 string, conPartition int3
 			Key:   sarama.StringEncoder("myInfo"),
 			Value: sarama.StringEncoder(jsonString),
 			Partition: targetPartition,
-		}
-
-
-		// wait for each send interval --> create a fixed transfer rate of messages
-		if i != 0{
-			// if (i % 100) == 0{
-				// println("Wait 100 msec before sending again 100 messages")
-				time.Sleep(time.Duration(csvStruct.MsDelay) * time.Millisecond)
-			// }
 		}
 
 		// fmt.Println("Sending Message : ")

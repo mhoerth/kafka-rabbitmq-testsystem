@@ -21,7 +21,7 @@ type MyInfo struct {
 // Field: ConsumeTime type string containing the timearray for the time needed to consume every message
 // Field: EncodingTime type string containing the timearray for the time needed to encode every message
 // Field: DecodingTime type string containing the timearray for the time needed to decode every message
-// Field: CompleteTime type float containing the time need to consume all messages
+// Field: CompleteTime type float containing the time need to send and consume all messages
 type Csv struct{
 	Interation int
 	Testsystem string
