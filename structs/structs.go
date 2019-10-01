@@ -29,14 +29,14 @@ type Csv struct{
 	CountProdCon int
 	MessageSize string
 	CompressionType string
-	SendTime [1000000]string
-	SendTimeStamps [1000000]string
-	ConSendTime [9][1000000]string	//8 possible consumer+producer
-	ConsumeTimeStamps [1000000]string
-	ConsumeTime [1000000]string
-	EncodingTime [9][1000000]string	//encodingTime[0][] is reserved for 'normal' producer
-	DecodingTime [9][1000000]string //encodingTime[0][] is reserved for 'normal' consumer
-	RoundTripTime[1000000]string
+	SendTime [9][100000]string
+	SendTimeStamps [100000]string
+	// ConSendTime [9][1000000]string	//8 possible consumer+producer
+	ConsumeTimeStamps [100000]string
+	ConsumeTime [9][100000]string
+	EncodingTime [9][100000]string	//encodingTime[0][] is reserved for 'normal' producer
+	DecodingTime [9][100000]string //encodingTime[0][] is reserved for 'normal' consumer
+	RoundTripTime[100000]string
 	CompleteTime float64
 	Filesize int64
 	MsDelay int

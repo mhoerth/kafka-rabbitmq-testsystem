@@ -258,7 +258,7 @@ func sender(sendQueue string) {
 
 		}
 		//   messageEndTimeTest := messageEndTime.Seconds()*1000
-		csvStruct.SendTime[i] = strconv.FormatFloat(messageEndTime, 'f', 6, 64)
+		csvStruct.SendTime[0][i] = strconv.FormatFloat(messageEndTime, 'f', 6, 64)
 		//   completeTime = completeTime + messageEndTime
 		//   log.Printf("SendTime: %f", messageEndTime)
 		//   log.Printf("SendTimeduration for recerving Message %d: %s", i, strconv.FormatFloat(messageEndTime, 'f', 6, 64))
@@ -360,7 +360,7 @@ func consumer(conQueue string) {
 			duration := messageReceivedTime - timevalue
 			durationMs := float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
 
-			csvStruct.ConsumeTime[i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
+			csvStruct.ConsumeTime[0][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
 			// completeTime = completeTime + durationMs
 
 			// compute complete time
@@ -494,7 +494,7 @@ func conprod(consendID int, conQueueName string, prodQueueName string) {
 				duration := messageReceivedTime - timevalue
 				durationMs := float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
 
-				csvStruct.ConSendTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
+				csvStruct.ConsumeTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
 				//    completeTime = completeTime + durationMs
 
 				//   fmt.Printf("Duration of Message: %d \n", duration)
@@ -557,7 +557,7 @@ func conprod(consendID int, conQueueName string, prodQueueName string) {
 				messageEndTime := time.Since(messageStartTime).Seconds() * 1000
 				//   messageEndTimeTest := messageEndTime.Seconds()*1000
 				//   sendTime[i] = strconv.FormatFloat(messageEndTime, 'f', 6, 64)
-				csvStruct.ConSendTime[consendID][i] = strconv.FormatFloat((durationMs + messageEndTime), 'f', 6, 64)
+				csvStruct.SendTime[consendID][i] = strconv.FormatFloat( messageEndTime, 'f', 6, 64)
 				// completeTime = completeTime + messageEndTime
 				//   log.Printf("SendTime: %f", messageEndTime)
 				//   log.Printf("SendTimeduration for recerving Message %d: %s", i, strconv.FormatFloat(messageEndTime, 'f', 6, 64))

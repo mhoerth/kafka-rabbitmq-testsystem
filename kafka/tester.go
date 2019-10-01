@@ -71,6 +71,7 @@ func Kafka(interations int, messageamount int, topic string, conProdInst int, co
 		// go output.Csv("Kafka", messages, sendTime, consumeTime, encodingTime, countprodcon, consendTime, decodingTime, completeTime, messageSize, compressionType)
 		// compute RoundTripTime
 		csvStruct.RoundTripTime = output.ComputeRoundTripTime(csvStruct.SendTimeStamps, csvStruct.ConsumeTimeStamps, csvStruct.Messages)
+		csvStruct.ConsumeTime = output.ComputeConsumeTime(csvStruct.EncodingTime, csvStruct.SendTime, csvStruct.ConsumeTime, csvStruct.CountProdCon, csvStruct.Messages)
 		// write csv file
 		output.Csv(csvStruct) //csvStruct is too large for a go routine
 		deleteConfigEnv(topictemp)
@@ -301,8 +302,6 @@ func producer(producerid int, messages int, targetTopic1 string, targetPartition
 			// println(jsonString)
 
 		}
-// send message
-messageStartTime := time.Now()
 
 		msg := &sarama.ProducerMessage{
 			Topic: topic,
@@ -313,6 +312,9 @@ messageStartTime := time.Now()
 
 		// fmt.Println("Sending Message : ")
 		// fmt.Println(msg)
+
+		// send message
+		messageStartTime := time.Now()
 
 		_, _, err := producer.SendMessage(msg)
 
@@ -331,7 +333,7 @@ messageStartTime := time.Now()
 			fmt.Printf("Size of msg: %d \n", len(jsonString))
 			csvStruct.Filesize = int64(len(jsonString))
 		}
-		csvStruct.SendTime[i] = strconv.FormatFloat(messageEndTime, 'f', 6, 64)
+		csvStruct.SendTime[0][i] = strconv.FormatFloat(messageEndTime, 'f', 6, 64)
 		// completeTime = completeTime + messageEndTime
 		// fmt.Printf("Message %d send to partition %d offset %d \n", i, partition, offset)
 
@@ -449,7 +451,21 @@ func consumer(consumerID int, messages int, targetTopic1 string, targetPartition
 		duration:= messageReceivedTime - timevalue
 		durationMs := float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
 
-		csvStruct.ConsumeTime[i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
+		// // get values fo encodingTime and sendTime
+		// encodingTime, err := strconv.ParseFloat(csvStruct.EncodingTime[csvStruct.CountProdCon][i], 64)
+		// if err != nil{
+		// 	panic(err)
+		// }
+
+		// sendTime, err := strconv.ParseFloat(csvStruct.SendTime[csvStruct.CountProdCon][i], 64)
+		// if err != nil{
+		// 	panic(err)
+		// }
+
+		// // measured consumeTime includes encoding- and sendTime, therefore we have to substract
+		// durationMs = durationMs - (encodingTime + sendTime)
+		csvStruct.ConsumeTime[0][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
+
 		// completeTime = completeTime + durationMs	 
 		// compute complete time
 		// correct the complete time --> complete time for sending and receiving != sum(sendtime + receivetime of all messages)
@@ -510,7 +526,7 @@ func (h exampleConsumerGroupHandler) ConsumeClaim(sess sarama.ConsumerGroupSessi
 			duration:= messageReceivedTime - timevalue
 			durationMs := float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
 
-			csvStruct.ConsumeTime[i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
+			csvStruct.ConsumeTime[0][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
 			println(durationMs)
 			// completeTime = completeTime + durationMs
 			// println(completeTime) 
@@ -740,9 +756,25 @@ func prodcon(consendID int, messages int, targetTopic1 string, conPartition int3
 		}
 
 		duration:= messageReceivedTime - timevalue
+
+		// // get values fo encodingTime and sendTime
+		// encodingTime, err := strconv.ParseFloat(csvStruct.EncodingTime[consendID -1][i], 64)
+		// if err != nil{
+		// 	panic(err)
+		// }
+
+		// sendTime, err := strconv.ParseFloat(csvStruct.SendTime[consendID -1][i], 64)
+		// if err != nil{
+		// 	panic(err)
+		// }
+
 		durationMs := float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
+
+		// // measured consumeTime includes encoding- and sendTime, therefore we have to substract
+		// durationMs = durationMs - (encodingTime + sendTime)
+
 		// println(durationMs)
-		csvStruct.ConSendTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
+		csvStruct.ConsumeTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
 		// completeTime = completeTime + durationMs	 
 
 
@@ -807,7 +839,7 @@ func prodcon(consendID int, messages int, targetTopic1 string, conPartition int3
 		}
 
 		messageEndTime:= time.Since(messageStartTime).Seconds()*1000
-		csvStruct.ConSendTime[consendID][i] = strconv.FormatFloat((durationMs + messageEndTime), 'f', 6, 64)
+		csvStruct.SendTime[consendID][i] = strconv.FormatFloat(messageEndTime, 'f', 6, 64)
 		// completeTime = completeTime + messageEndTime
 
 		if i < 1{

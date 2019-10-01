@@ -25,28 +25,30 @@ func Csv(csvStruct structs.Csv){
 	defer f.Close()
 
 	f.WriteString("Messagenumber;")
-	f.WriteString("ProducerSendTime;")
 	f.WriteString("ProducerEncodingTime;")
+	f.WriteString("ProducerSendTime;")
 	if csvStruct.CountProdCon > 0{
 		f.WriteString("Consumer&ProducerConsumeTime;")
-		f.WriteString("Consumer&ProducerEncodeTime;")
 		f.WriteString("Consumer&ProducerDecodeTime;")	
+		f.WriteString("Consumer&ProducerEncodeTime;")
+		f.WriteString("Consumer&ProducerSendTime;")
 	}
-	f.WriteString("ConsumerTime;")
+	f.WriteString("LastConsumerTime;")
 	f.WriteString("ConsumerDecodingTime;")
 	f.WriteString("RoundTripTime;")
 	f.WriteString("\n")
 
 	for i:=0; i < csvStruct.Messages; i++{
 		f.WriteString(strconv.Itoa(i) + " ;") //Messagenumber
-		f.WriteString(csvStruct.SendTime[i] + ";")
 		f.WriteString(csvStruct.EncodingTime[0][i] + ";")
+		f.WriteString(csvStruct.SendTime[0][i] + ";")
 		for cp:=1; cp <= csvStruct.CountProdCon; cp++{
 			// f.WriteString("Consumer&ProducerSendTime: ")
 			// f.WriteString(";")
-			f.WriteString(csvStruct.ConSendTime[cp][i] + ";")
+			f.WriteString(csvStruct.ConsumeTime[cp][i] + ";")
+			f.WriteString(csvStruct.DecodingTime[cp][i] + ";")
 			f.WriteString(csvStruct.EncodingTime[cp][i] + ";")
-			f.WriteString(csvStruct.DecodingTime[cp][i])
+			f.WriteString(csvStruct.SendTime[cp][i])
 			if(cp < csvStruct.CountProdCon){
 				f.WriteString("; \n"  + strconv.Itoa(i) +  "; ; ;")
 			}else{
@@ -54,7 +56,7 @@ func Csv(csvStruct structs.Csv){
 			}
 		}
 		// f.WriteString("ConsumerTime: ")
-		f.WriteString(csvStruct.ConsumeTime[i] + ";")
+		f.WriteString(csvStruct.ConsumeTime[0][i] + ";")
 		f.WriteString(csvStruct.DecodingTime[0][i] + ";")
 		f.WriteString(csvStruct.RoundTripTime[i])
 		f.WriteString("; \n")
@@ -68,8 +70,8 @@ func Csv(csvStruct structs.Csv){
 	f.WriteString("; \n")
 }
 // ComputeRoundTripTime computes the RoundTripTime out of the SendTime and the ConsumeTime stored in arrays during the measurement
-func ComputeRoundTripTime(sendTimes[1000000] string, consumeTimes[1000000]string, messages int) ([1000000]string) {
-	var roundTripTime [1000000]string
+func ComputeRoundTripTime(sendTimes[100000] string, consumeTimes[100000]string, messages int) ([100000]string) {
+	var roundTripTime [100000]string
 	for i:=0; i<messages; i++{
 		consumeTime, err := strconv.ParseInt(consumeTimes[i], 10, 64)
 		if err != nil{
@@ -85,4 +87,52 @@ func ComputeRoundTripTime(sendTimes[1000000] string, consumeTimes[1000000]string
 	}
 
 	return roundTripTime
+}
+// ComputeConsumeTime is used to correct the consume time from containing the encoding- sending and consuetime to only contain the consumetime
+func ComputeConsumeTime(EncodingTime[9][100000] string, SendTime[9][100000] string, ConsumeTime[9][100000] string, instances int, messages int)([9][100000]string){
+	corrConsumeTime := ConsumeTime
+	// var encodingTime float64
+	// var sendTime float64
+	// var err error
+
+	for inst:=0; inst <= instances; inst++{
+		for i:=0; i < messages; i++{
+
+			// get values fo encodingTime and sendTime
+				// if inst > 0{
+				// 	encodingTime, err = strconv.ParseFloat(EncodingTime[inst -1][i], 64)
+				// 	if err != nil{
+				// 		panic(err)
+				// 	}
+				// }else{
+					encodingTime, err := strconv.ParseFloat(EncodingTime[inst][i], 64)
+					if err != nil{
+						panic(err)
+					}	
+				// }
+				
+				// if inst > 0{
+				// 	sendTime, err = strconv.ParseFloat(SendTime[inst -1][i], 64)
+				// 	if err != nil{
+				// 		panic(err)
+				// 	}
+				// }else{
+					sendTime, err := strconv.ParseFloat(SendTime[inst][i], 64)
+					if err != nil{
+						panic(err)
+					}
+				// }
+	
+				consumeTime, err := strconv.ParseFloat(ConsumeTime[inst][i], 64)
+				if err != nil{
+					panic(err)
+				}
+
+			// measured consumeTime includes encoding- and sendTime, therefore we have to substract
+			durationMs := consumeTime - (encodingTime + sendTime)
+			corrConsumeTime[inst][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
+		}
+	}
+
+	return corrConsumeTime
 }
