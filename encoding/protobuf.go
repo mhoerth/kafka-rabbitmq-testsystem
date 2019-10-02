@@ -28,15 +28,15 @@ func EncodeProto(conProdID int, messageID int, scareMe string, binary []byte) ([
         log.Fatal("marshaling error: ", err)
     }
 
-	endTime := time.Now().UnixNano()
-	duration:= endTime - startTime
+	// endTime := time.Now().UnixNano()
+	// duration:= endTime - startTime
 	// durationMs := float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
 	// encodingTime[conProdID][messageID] = strconv.FormatFloat(durationMs, 'f', 6, 64)
 
   // printing out our raw protobuf object
     // fmt.Println(data)
 
-	return data, duration
+	return data, startTime
 }
 
 // DecodeProto decodes a message the specific format 'Myinfo' included in this testsystem
@@ -59,8 +59,8 @@ jsonMsg.TheTime = object.GetTheTime()
 jsonMsg.ScareMe = object.GetScareMe()
 jsonMsg.Binaryfile = object.GetBinaryFile()
 
-endTime := time.Now().UnixNano()
-duration:= endTime - startTime
+// endTime := time.Now().UnixNano()
+// duration:= endTime - startTime
 // durationMs := float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
 // decodingTime[conProdID][messageID] = strconv.FormatFloat(durationMs, 'f', 6, 64)
 
@@ -69,5 +69,5 @@ duration:= endTime - startTime
 	// fmt.Printf("ScareMe: %s \n", jsonMsg.ScareMe)
 	// fmt.Printf("Binary: %s \n", jsonMsg.Binaryfile)
 
-	return jsonMsg, duration
+	return jsonMsg, startTime
 }

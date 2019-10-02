@@ -110,18 +110,6 @@ func ComputeConsumeTime(EncodingTime[9][100000] string, SendTime[9][100000] stri
 						panic(err)
 					}	
 				// }
-				
-				// if inst > 0{
-				// 	sendTime, err = strconv.ParseFloat(SendTime[inst -1][i], 64)
-				// 	if err != nil{
-				// 		panic(err)
-				// 	}
-				// }else{
-					sendTime, err := strconv.ParseFloat(SendTime[inst][i], 64)
-					if err != nil{
-						panic(err)
-					}
-				// }
 	
 				consumeTime, err := strconv.ParseFloat(ConsumeTime[inst][i], 64)
 				if err != nil{
@@ -129,7 +117,7 @@ func ComputeConsumeTime(EncodingTime[9][100000] string, SendTime[9][100000] stri
 				}
 
 			// measured consumeTime includes encoding- and sendTime, therefore we have to substract
-			durationMs := consumeTime - (encodingTime + sendTime)
+			durationMs := consumeTime - encodingTime
 			corrConsumeTime[inst][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
 		}
 	}

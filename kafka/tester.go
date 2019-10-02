@@ -70,6 +70,7 @@ func Kafka(interations int, messageamount int, topic string, conProdInst int, co
 		println("Writing CSV file")
 		// go output.Csv("Kafka", messages, sendTime, consumeTime, encodingTime, countprodcon, consendTime, decodingTime, completeTime, messageSize, compressionType)
 		// compute RoundTripTime
+		println("Compute RTT and ConsumeTime")
 		csvStruct.RoundTripTime = output.ComputeRoundTripTime(csvStruct.SendTimeStamps, csvStruct.ConsumeTimeStamps, csvStruct.Messages)
 		csvStruct.ConsumeTime = output.ComputeConsumeTime(csvStruct.EncodingTime, csvStruct.SendTime, csvStruct.ConsumeTime, csvStruct.CountProdCon, csvStruct.Messages)
 		// write csv file
@@ -234,6 +235,8 @@ func producer(producerid int, messages int, targetTopic1 string, targetPartition
 
 	var testifleinput []byte
 	var jsonMsg structs.MyInfo
+	var startTime int64
+	var jsonOutput []byte
 
 	if testifleinput == nil {
 		// testifleinput, err = ioutil.ReadFile("../../output-" + messageSize + "Kibi-rand")
@@ -268,39 +271,17 @@ func producer(producerid int, messages int, targetTopic1 string, targetPartition
 		switch compressionType {
 		case "json":
 			jsonMsg.TheTime = strconv.Itoa(int(time.Now().UnixNano()))	//--> important to use this command twice, because of accourate time measurement !
-			startTime := time.Now().UnixNano()
+			startTime = time.Now().UnixNano()
 			jsonOutput, _ := json.Marshal(&jsonMsg)
-			endTime := time.Now().UnixNano()
-
-			duration:= endTime - startTime
-			durationMs := float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
-			csvStruct.EncodingTime[0][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
 
 			jsonString = (string)(jsonOutput)
 			// println(jsonString)
 		case "avro":
-			jsonOutput, needTime := encoding.EncodeAvro(0, i, jsonMsg.ScareMe, jsonMsg.Binaryfile) //get encoded message + encoding time
-			durationMs := float64(needTime) / float64(1000000) //Nanosekunden in Milisekunden
-			csvStruct.EncodingTime[0][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
+			jsonOutput, startTime = encoding.EncodeAvro(0, i, jsonMsg.ScareMe, jsonMsg.Binaryfile) //get encoded message + encoding time
 			jsonString = (string)(jsonOutput)
 		case "proto":
-			jsonOutput, needTime := encoding.EncodeProto(0, i, jsonMsg.ScareMe, jsonMsg.Binaryfile)
-			durationMs := float64(needTime) / float64(1000000) //Nanosekunden in Milisekunden
-			csvStruct.EncodingTime[0][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
+			jsonOutput, startTime = encoding.EncodeProto(0, i, jsonMsg.ScareMe, jsonMsg.Binaryfile)
 			jsonString = (string)(jsonOutput)
-		default:
-			jsonMsg.TheTime = strconv.Itoa(int(time.Now().UnixNano())) //--> important to use this command twice, because of accourate time measurement !
-			startTime := time.Now().UnixNano()
-			jsonOutput, _ := json.Marshal(&jsonMsg)
-			endTime := time.Now().UnixNano()
-
-			duration:= endTime - startTime
-			durationMs := float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
-			csvStruct.EncodingTime[0][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
-
-			jsonString = (string)(jsonOutput)
-			// println(jsonString)
-
 		}
 
 		msg := &sarama.ProducerMessage{
@@ -315,6 +296,12 @@ func producer(producerid int, messages int, targetTopic1 string, targetPartition
 
 		// send message
 		messageStartTime := time.Now()
+
+		// write encoding time
+		duration:= messageStartTime.UnixNano() - startTime
+		durationMs := float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
+		csvStruct.EncodingTime[0][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
+
 
 		_, _, err := producer.SendMessage(msg)
 
@@ -414,29 +401,27 @@ func consumer(consumerID int, messages int, targetTopic1 string, targetPartition
 		}
 
 		var jsonRecord structs.MyInfo
-		var needTime int64
+		var endTime int64
 		// check compressionType
 		switch compressionType {
 		case "json":
 			// println(string(msg.Value))// --> falche Zeiten kommen hier bereits an !!!!!
-			startTime := time.Now().UnixNano()
+			// startTime := time.Now().UnixNano()
 			json.Unmarshal(msg.Value, &jsonRecord)
-			endTime := time.Now().UnixNano()
+			endTime = time.Now().UnixNano()
 
-			duration:= endTime - startTime
-			durationMs := float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
-			csvStruct.DecodingTime[0][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
 		case "avro":
 			// println(string(msg.Value)) // --> falche Zeiten kommen hier bereits an !!!!!
-			jsonRecord, needTime = encoding.DecodeAvro(0, i, msg.Value)
-			durationMs := float64(needTime) / float64(1000000) //Nanosekunden in Milisekunden
-			csvStruct.DecodingTime[0][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
+			jsonRecord, endTime = encoding.DecodeAvro(0, i, msg.Value)
 		case "proto":
 			// println(string(msg.Value)) // --> falche Zeiten kommen hier bereits an !!!!!
-			jsonRecord, needTime = encoding.DecodeProto(0, i, msg.Value)
-			durationMs := float64(needTime) / float64(1000000) //Nanosekunden in Milisekunden
-			csvStruct.DecodingTime[0][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
+			jsonRecord, endTime = encoding.DecodeProto(0, i, msg.Value)
 		}
+
+		// write decodingTime
+		duration:= endTime - messageReceivedTime
+		durationMs := float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
+		csvStruct.DecodingTime[0][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
 
 		// println(jsonRecord.TheTime)
 		timevalue, err := strconv.ParseInt(jsonRecord.TheTime, 10, 64)
@@ -448,8 +433,8 @@ func consumer(consumerID int, messages int, targetTopic1 string, targetPartition
 		// 	sessionStarttime = timevalue
 		// }
 
-		duration:= messageReceivedTime - timevalue
-		durationMs := float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
+		duration = messageReceivedTime - timevalue
+		durationMs = float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
 
 		// // get values fo encodingTime and sendTime
 		// encodingTime, err := strconv.ParseFloat(csvStruct.EncodingTime[csvStruct.CountProdCon][i], 64)
@@ -729,33 +714,33 @@ func prodcon(consendID int, messages int, targetTopic1 string, conPartition int3
 		}
 
 		var jsonRecord structs.MyInfo
-		var needTime int64
+		var endTime int64
+		var startTime int64
+		var jsonOutput []byte
 		// check compressionType
 		switch compressionType {
 		case "json":
-			startTime := time.Now().UnixNano()
+			// startTime := time.Now().UnixNano()
 			json.Unmarshal(msg.Value, &jsonRecord)
-			endTime := time.Now().UnixNano()
+			endTime = time.Now().UnixNano()
 
-			duration:= endTime - startTime
-			durationMs := float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
-			csvStruct.DecodingTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
 		case "avro":
-			jsonRecord, needTime = encoding.DecodeAvro(consendID, i, msg.Value)
-			durationMs := float64(needTime) / float64(1000000) //Nanosekunden in Milisekunden
-			csvStruct.DecodingTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
+			jsonRecord, endTime = encoding.DecodeAvro(consendID, i, msg.Value)
 		case "proto":
-			jsonRecord, needTime = encoding.DecodeProto(consendID, i, msg.Value)
-			durationMs := float64(needTime) / float64(1000000) //Nanosekunden in Milisekunden
-			csvStruct.DecodingTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
+			jsonRecord, endTime = encoding.DecodeProto(consendID, i, msg.Value)
 		}
+
+		// write decodingTime
+		duration:= endTime - messageReceivedTime
+		durationMs := float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
+		csvStruct.DecodingTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
 
 		timevalue, err := strconv.ParseInt(jsonRecord.TheTime, 10, 64)
 		if err != nil {
 			log.Fatal("%s", err)
 		}
 
-		duration:= messageReceivedTime - timevalue
+		duration = messageReceivedTime - timevalue
 
 		// // get values fo encodingTime and sendTime
 		// encodingTime, err := strconv.ParseFloat(csvStruct.EncodingTime[consendID -1][i], 64)
@@ -768,7 +753,7 @@ func prodcon(consendID int, messages int, targetTopic1 string, conPartition int3
 		// 	panic(err)
 		// }
 
-		durationMs := float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
+		durationMs  = float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
 
 		// // measured consumeTime includes encoding- and sendTime, therefore we have to substract
 		// durationMs = durationMs - (encodingTime + sendTime)
@@ -796,29 +781,17 @@ func prodcon(consendID int, messages int, targetTopic1 string, conPartition int3
 		switch compressionType {
 		case "json":
 			jsonRecord.TheTime = strconv.Itoa(int(time.Now().UnixNano()))
-			startTime := time.Now().UnixNano()
+			startTime = time.Now().UnixNano()
 			jsonOutput, _ := json.Marshal(&jsonRecord)
-			endTime := time.Now().UnixNano()
-
-			duration:= endTime - startTime
-			durationMs := float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
-			csvStruct.EncodingTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
+			// endTime := time.Now().UnixNano()
 
 			jsonString = (string)(jsonOutput)	
 		case "avro":
-			jsonOutput, needTime := encoding.EncodeAvro(consendID, i, jsonRecord.ScareMe, jsonRecord.Binaryfile)
-			durationMs := float64(needTime) / float64(1000000) //Nanosekunden in Milisekunden
-			csvStruct.EncodingTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
+			jsonOutput, startTime = encoding.EncodeAvro(consendID, i, jsonRecord.ScareMe, jsonRecord.Binaryfile)
 			jsonString = (string)(jsonOutput)
 		case "proto":
-			jsonOutput, needTime := encoding.EncodeProto(consendID, i, jsonRecord.ScareMe, jsonRecord.Binaryfile)
-			durationMs := float64(needTime) / float64(1000000) //Nanosekunden in Milisekunden
-			csvStruct.EncodingTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
+			jsonOutput, startTime = encoding.EncodeProto(consendID, i, jsonRecord.ScareMe, jsonRecord.Binaryfile)
 			jsonString = (string)(jsonOutput)
-		default:
-			jsonRecord.TheTime = strconv.Itoa(int(time.Now().UnixNano()))
-			jsonOutput, _ := json.Marshal(&jsonRecord)
-			jsonString = (string)(jsonOutput)	
 		}
 
 		msgout := &sarama.ProducerMessage{
@@ -831,6 +804,11 @@ func prodcon(consendID int, messages int, targetTopic1 string, conPartition int3
 		// fmt.Println("Sending Message : ")
 		// fmt.Println(msg)
 		messageStartTime := time.Now()
+
+		// write encoding time
+		duration = messageStartTime.UnixNano() - startTime
+		durationMs  = float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
+		csvStruct.EncodingTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
 
 		partition, _, err := producerInst.SendMessage(msgout)
 

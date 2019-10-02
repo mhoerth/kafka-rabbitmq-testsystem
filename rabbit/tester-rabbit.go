@@ -67,6 +67,11 @@ func Rabbit(interations int, messageamount int, queue string, conProdInst int, c
 		// delete queues
 		// deleteQueues(queuetemp, countprodcon)
 
+		// compute RoundTripTime
+		println("Compute RTT and ConsumeTime")
+		csvStruct.RoundTripTime = output.ComputeRoundTripTime(csvStruct.SendTimeStamps, csvStruct.ConsumeTimeStamps, csvStruct.Messages)
+		csvStruct.ConsumeTime = output.ComputeConsumeTime(csvStruct.EncodingTime, csvStruct.SendTime, csvStruct.ConsumeTime, csvStruct.CountProdCon, csvStruct.Messages)
+		
 		println("Writing CSV file")
 		// // write file
 		output.Csv(csvStruct) //csvStruct is too large for a go routine	
@@ -163,7 +168,7 @@ func sender(sendQueue string) {
 	jsonOutput, _ = json.Marshal(&jsonMsg)
 	// fmt.Printf("Size of msg(ScareMe + Binaryfile): %d \n", len(jsonOutput))
 
-	var needTime int64
+	var startTime int64
 
 	//   jsonString := (string)(jsonOutput)
 
@@ -185,31 +190,26 @@ func sender(sendQueue string) {
 		switch compressionType {
 		case "json":
 			jsonMsg.TheTime = strconv.Itoa(int(time.Now().UnixNano())) //--> important to use this command twice, because of accourate time measurement !
-			startTime := time.Now().UnixNano()
+			startTime = time.Now().UnixNano()
 			jsonOutput, _ = json.Marshal(&jsonMsg)
 			// fmt.Printf("Size of msg: %d \n", len(jsonOutput))
 
-			endTime := time.Now().UnixNano()
+			// endTime := time.Now().UnixNano()
 
-			duration:= endTime - startTime
-			durationMs := float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
-			csvStruct.EncodingTime[0][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
 			// println(jsonString)
 		case "avro":
-			jsonOutput, needTime = encoding.EncodeAvro(0, i, jsonMsg.ScareMe, jsonMsg.Binaryfile)
-			durationMs := float64(needTime) / float64(1000000) //Nanosekunden in Milisekunden
-			csvStruct.EncodingTime[0][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
+			jsonOutput, startTime = encoding.EncodeAvro(0, i, jsonMsg.ScareMe, jsonMsg.Binaryfile)
 		case "proto":
-			jsonOutput, needTime = encoding.EncodeProto(0, i, jsonMsg.ScareMe, jsonMsg.Binaryfile)
-			durationMs := float64(needTime) / float64(1000000) //Nanosekunden in Milisekunden
-			csvStruct.EncodingTime[0][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
-		default:
-			jsonMsg.TheTime = strconv.Itoa(int(time.Now().UnixNano())) //--> important to use this command twice, because of accourate time measurement !
-			jsonOutput, _ = json.Marshal(&jsonMsg)
-			// println(jsonString)
+			jsonOutput, startTime = encoding.EncodeProto(0, i, jsonMsg.ScareMe, jsonMsg.Binaryfile)
 		}
 
 		messageStartTime := time.Now()
+
+		// write encodingTime
+		duration:= messageStartTime.UnixNano() - startTime
+		durationMs := float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
+		csvStruct.EncodingTime[0][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
+
 		err = ch.Publish(
 			"",     // exchange
 			q.Name, // routing key
@@ -225,6 +225,9 @@ func sender(sendQueue string) {
 		failOnError(err, "Failed to publish a message")
 
 		messageEndTime := time.Since(messageStartTime).Seconds() * 1000
+		
+		// set start of the round trip time
+		csvStruct.SendTimeStamps[i] = strconv.FormatInt(messageStartTime.UnixNano(), 10)
 
 		// for testing the impact of different messagesizes
 		// var jsonMsg2 structs.MyInfo
@@ -310,6 +313,8 @@ func consumer(conQueue string) {
 	i := 0
 	for d := range msgs {
 		messageReceivedTime := time.Now().UnixNano() // --> wenn die Zeit hier genommen wird, wird die Laufzeit der Forschleife mit eingerechnet
+		csvStruct.ConsumeTimeStamps[i] = strconv.FormatInt(messageReceivedTime, 10)
+
 		if i < (messages) {
 			if i == 0 {
 				log.Printf("Received message %d with CorrID: %s", i, d.CorrelationId)
@@ -319,31 +324,29 @@ func consumer(conQueue string) {
 			// println()
 
 			var jsonRecord structs.MyInfo
-			var needTime int64
+			var endTime int64
 			// fmt.Println(jsonRecord.TheTime)
 
 			// check compressionType
 			switch compressionType {
 			case "json":
 				// println(string(msg.Value))// --> falche Zeiten kommen hier bereits an !!!!!
-				startTime := time.Now().UnixNano()
+				// startTime := time.Now().UnixNano()
 				json.Unmarshal(d.Body, &jsonRecord)
-				endTime := time.Now().UnixNano()
+				endTime = time.Now().UnixNano()
 	
-				duration:= endTime - startTime
-				durationMs := float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
-				csvStruct.DecodingTime[0][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)	
 			case "avro":
 				// println(string(msg.Value)) // --> falche Zeiten kommen hier bereits an !!!!!
-				jsonRecord,needTime = encoding.DecodeAvro(0, i, d.Body)
-				durationMs := float64(needTime) / float64(1000000) //Nanosekunden in Milisekunden
-				csvStruct.DecodingTime[0][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)	
+				jsonRecord,endTime = encoding.DecodeAvro(0, i, d.Body)
 			case "proto":
 				// println(string(msg.Value)) // --> falche Zeiten kommen hier bereits an !!!!!
-				jsonRecord,needTime = encoding.DecodeProto(0, i, d.Body)
-				durationMs := float64(needTime) / float64(1000000) //Nanosekunden in Milisekunden
-				csvStruct.DecodingTime[0][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)	
+				jsonRecord,endTime = encoding.DecodeProto(0, i, d.Body)
 			}
+
+			// write decodingTime
+			duration:= endTime - messageReceivedTime
+			durationMs := float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
+			csvStruct.DecodingTime[0][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)	
 
 			timevalue, err := strconv.ParseInt(jsonRecord.TheTime, 10, 64)
 			if err != nil {
@@ -357,8 +360,8 @@ func consumer(conQueue string) {
 			//   currenttime:= int64(messageReceivedTime)
 			//   fmt.Println("Current Time: ",messageReceivedTime)
 
-			duration := messageReceivedTime - timevalue
-			durationMs := float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
+			duration = messageReceivedTime - timevalue
+			durationMs = float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
 
 			csvStruct.ConsumeTime[0][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
 			// completeTime = completeTime + durationMs
@@ -459,28 +462,27 @@ func conprod(consendID int, conQueueName string, prodQueueName string) {
 
 				var jsonRecord structs.MyInfo
 				var jsonOutput []byte
-				var needTime int64
+				var endTime int64
+				var startTime int64
 				// fmt.Println(jsonRecord.TheTime)
 
 				// check compressionType
 				switch compressionType {
 				case "json":
-					startTime := time.Now().UnixNano()
+					// startTime := time.Now().UnixNano()
 					json.Unmarshal(d.Body, &jsonRecord)
-					endTime := time.Now().UnixNano()
+					endTime = time.Now().UnixNano()
 		
-					duration:= endTime - startTime
-					durationMs := float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
-					csvStruct.DecodingTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)		
 				case "avro":
-					jsonRecord, needTime = encoding.DecodeAvro(consendID, i, d.Body)
-					durationMs := float64(needTime) / float64(1000000) //Nanosekunden in Milisekunden
-					csvStruct.DecodingTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)		
+					jsonRecord, endTime = encoding.DecodeAvro(consendID, i, d.Body)
 				case "proto":
-					jsonRecord, needTime = encoding.DecodeProto(consendID, i, d.Body)
-					durationMs := float64(needTime) / float64(1000000) //Nanosekunden in Milisekunden
-					csvStruct.DecodingTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)		
+					jsonRecord, endTime = encoding.DecodeProto(consendID, i, d.Body)
 				}
+
+				// write decodingTime
+				duration:= endTime - messageReceivedTime
+				durationMs := float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
+				csvStruct.DecodingTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)		
 
 				timevalue, err := strconv.ParseInt(jsonRecord.TheTime, 10, 64)
 				if err != nil {
@@ -491,8 +493,8 @@ func conprod(consendID int, conQueueName string, prodQueueName string) {
 				//   currenttime:= int64(messageReceivedTime)
 				//   fmt.Println("Current Time: ",messageReceivedTime)
 
-				duration := messageReceivedTime - timevalue
-				durationMs := float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
+				duration = messageReceivedTime - timevalue
+				durationMs = float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
 
 				csvStruct.ConsumeTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
 				//    completeTime = completeTime + durationMs
@@ -509,37 +511,33 @@ func conprod(consendID int, conQueueName string, prodQueueName string) {
 
 				// select compression / message format
 				switch compressionType {
-				case "":
+				case "json":
 					jsonRecord.TheTime = strconv.Itoa(int(time.Now().UnixNano()))
-					startTime := time.Now().UnixNano()
+					startTime = time.Now().UnixNano()
 					jsonOutput, _ = json.Marshal(&jsonRecord)
-					endTime := time.Now().UnixNano()
+					// endTime := time.Now().UnixNano()
 		
-					duration:= endTime - startTime
-					durationMs := float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
-					csvStruct.EncodingTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)		
 				case "avro":
-					jsonOutput, needTime = encoding.EncodeAvro(consendID, i, jsonRecord.ScareMe, jsonRecord.Binaryfile)
-					durationMs := float64(needTime) / float64(1000000) //Nanosekunden in Milisekunden
-					csvStruct.EncodingTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)		
+					jsonOutput, startTime = encoding.EncodeAvro(consendID, i, jsonRecord.ScareMe, jsonRecord.Binaryfile)
 				case "proto":
-					jsonOutput, needTime = encoding.EncodeProto(consendID, i, jsonRecord.ScareMe, jsonRecord.Binaryfile)
-					durationMs := float64(needTime) / float64(1000000) //Nanosekunden in Milisekunden
-					csvStruct.EncodingTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)		
-				default:
-					jsonRecord.TheTime = strconv.Itoa(int(time.Now().UnixNano()))
-					jsonOutput, _ = json.Marshal(&jsonRecord)
+					jsonOutput, startTime = encoding.EncodeProto(consendID, i, jsonRecord.ScareMe, jsonRecord.Binaryfile)
 				}
 
-				// wait for each send interval --> create a fixed transfer rate of messages
-				if i != 0{
-					// if (i % 100) == 0{
-						// println("Wait 100 msec before sending again 100 messages")
-						time.Sleep(time.Duration(csvStruct.MsDelay) * time.Millisecond)
-						// }
-				}
+				// // wait for each send interval --> create a fixed transfer rate of messages
+				// if i != 0{
+				// 	// if (i % 100) == 0{
+				// 		// println("Wait 100 msec before sending again 100 messages")
+				// 		time.Sleep(time.Duration(csvStruct.MsDelay) * time.Millisecond)
+				// 		// }
+				// }
 
 				messageStartTime := time.Now()
+
+				// write encodingTime
+				duration = messageStartTime.UnixNano() - startTime
+				durationMs  = float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
+				csvStruct.EncodingTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)	
+
 				err = chP.Publish(
 					"",      // exchange
 					qp.Name, // routing key

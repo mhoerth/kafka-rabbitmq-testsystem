@@ -56,8 +56,8 @@ func EncodeAvro(conProdID int, messageID int, scareMe string, binary []byte) ([]
 	// 	panic(err)
 	// }
 	bytearray:= b.Bytes()
-	endTime := time.Now().UnixNano()
-	duration:= endTime - startTime
+	// endTime := time.Now().UnixNano()
+	// duration:= endTime - startTime
 
 	// control printout
 	// println(b.Cap())
@@ -67,7 +67,7 @@ func EncodeAvro(conProdID int, messageID int, scareMe string, binary []byte) ([]
 
 	// println("avro compression finished!!!")
 
-	return bytearray, duration
+	return bytearray, startTime
 }
 
 // DecodeAvro decodes a message the specific format 'Myinfo' included in this testsystem
@@ -102,13 +102,13 @@ func DecodeAvro(conProdID int, messageID int, message []byte) (structs.MyInfo, i
 	// println(string(jsontest))
 	json.Unmarshal(jsontest, &output)
 
-	endTime := time.Now().UnixNano()
-	duration:= endTime - startTime
+	// endTime := time.Now().UnixNano()
+	// duration:= endTime - startTime
 
 	// fmt.Printf("Myinfo1: %s \n", output)
 	// fmt.Printf("Time: %s \n", output.TheTime)
 	// fmt.Printf("ScareMe: %s \n", output.ScareMe)
 	// fmt.Printf("Binary: %s \n", output.Binaryfile)
 
-	return output, duration
+	return output, startTime
 }
