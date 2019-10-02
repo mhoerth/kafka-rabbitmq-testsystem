@@ -35,7 +35,7 @@ var csvStruct structs.Csv
 
 // Kafka starts a Kafka Producer and consumer with the option to add up to 6 instances which are consuming and producing (changing the message a bit)
 // , to define an encoding format, and the size of the binary message included in the message sent to the message bus system, the topicname to send to and the message amount
-func Kafka(interations int, messageamount int, topic string, conProdInst int, compression string, sizeOfMessaage string, delayTime int) {
+func Kafka(interations int, messageamount int, topic string, conProdInst int, compression string, sizeOfMessaage string, delayTime int, synchronicity string ) {
 
 	topictemp := topic
 	messages = messageamount
@@ -43,7 +43,12 @@ func Kafka(interations int, messageamount int, topic string, conProdInst int, co
 	compressionType = compression
 	messageSize = sizeOfMessaage
 
-	csvStruct.Testsystem = "Kafka"
+	if synchronicity == "sync"{
+		csvStruct.Testsystem = "SyncKafka"
+	}
+	if synchronicity == "async"{
+		csvStruct.Testsystem = "AsyncKafka"
+	}
 	csvStruct.Messages = messageamount
 	csvStruct.CountProdCon = conProdInst
 	csvStruct.MessageSize = sizeOfMessaage
@@ -56,7 +61,12 @@ func Kafka(interations int, messageamount int, topic string, conProdInst int, co
 		csvStruct.Interation = i
 		configEnv(topictemp)
 		starttime := time.Now()
-		go producer(1, messages, (topictemp + strconv.Itoa(0)), 0)
+		if synchronicity == "sync"{
+			go syncProducer(1, messages, (topictemp + strconv.Itoa(0)), 0)
+		}
+		if synchronicity == "async"{
+			go asyncProducer(1, messages, (topictemp + strconv.Itoa(0)), 0)
+		}
 		// go consumergroup(1, (topictemp + strconv.Itoa(0)))
 		go prodconStarter(topictemp)
 	
@@ -180,8 +190,8 @@ func deleteConfigEnv(topictemplate string){
 			}
 	}
 
-// starts a producer instnce for kafka 
-func producer(producerid int, messages int, targetTopic1 string, targetPartition int32) {
+// starts a syncProducer instnce for kafka 
+func syncProducer(producerid int, messages int, targetTopic1 string, targetPartition int32) {
 
 	fmt.Printf("Starting Producer %d \n", producerid)
 	//	segmenthelper.LogInit("experimental.kafka-producer", "experimental", "test")
@@ -208,8 +218,9 @@ func producer(producerid int, messages int, targetTopic1 string, targetPartition
 
 	// brokers := []string{"127.0.0.1:9092"}
 
-	// create a producer
-	producer, err := sarama.NewSyncProducer(brokers, config)
+	// create a sync producer
+		producer, err := sarama.NewSyncProducer(brokers, config)
+
 	if err != nil {
 		panic(err)
 	}
@@ -302,13 +313,13 @@ func producer(producerid int, messages int, targetTopic1 string, targetPartition
 		durationMs := float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
 		csvStruct.EncodingTime[0][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
 
+			// sync producer
+			_, _, err := producer.SendMessage(msg)
 
-		_, _, err := producer.SendMessage(msg)
-
-		if err != nil {
-			println(len(jsonString))	//which size has the complete message? Why is the added information to larger messages so different to small ones?
-			panic(err)
-		}
+			if err != nil {
+				println(len(jsonString))	//which size has the complete message? Why is the added information to larger messages so different to small ones?
+				panic(err)
+			}
 
 		messageEndTime:= time.Since(messageStartTime).Seconds()*1000
 
@@ -323,6 +334,170 @@ func producer(producerid int, messages int, targetTopic1 string, targetPartition
 		csvStruct.SendTime[0][i] = strconv.FormatFloat(messageEndTime, 'f', 6, 64)
 		// completeTime = completeTime + messageEndTime
 		// fmt.Printf("Message %d send to partition %d offset %d \n", i, partition, offset)
+
+	}
+	elapsed := time.Since(starttime)
+	fmt.Printf("Producer: %d send %d Messages -- elapsed time: %s \nAveragetime per message: %s \n", producerid, sendmessages, elapsed, elapsed/time.Duration(sendmessages))
+	finishedsending <- true
+	return
+}
+
+// starts a asyncProducer instnce for kafka 
+func asyncProducer(producerid int, messages int, targetTopic1 string, targetPartition int32) {
+
+	fmt.Printf("Starting Producer %d \n", producerid)
+	//	segmenthelper.LogInit("experimental.kafka-producer", "experimental", "test")
+
+	// Setup configuration
+	config := sarama.NewConfig()
+	// config.Timeout := --> malsehen ?!?!?
+
+	// Return specifies what channels will be populated.
+	// If they are set to true, you must read from
+	// config.Producer.Return.Successes = true
+	// The total number of times to retry sending a message (default 3).
+	config.Producer.Retry.Max = 5
+
+	// The level of acknowledgement reliability needed from the broker.
+	config.Producer.RequiredAcks = sarama.WaitForAll
+
+	// for sync
+	config.Producer.Return.Successes = true
+	//for batching ???
+	config.Producer.Flush.MaxMessages = 1
+
+	config.Producer.Partitioner = sarama.NewManualPartitioner //set the partition amnually siplyifes the test (no complex get and set partition!!!)
+
+	// brokers := []string{"127.0.0.1:9092"}
+
+	// create a async producer
+		producer, err := sarama.NewAsyncProducer(brokers, config)
+
+	if err != nil {
+		panic(err)
+	}
+
+	defer func() {
+		if err := producer.Close(); err != nil {
+			panic(err)
+		}
+	}()
+
+	// my topic
+	topic := targetTopic1
+	partition := targetPartition
+
+	fmt.Printf("Start producer: %d by sending a creepy and scary message \n", producerid)
+
+	starttime := time.Now()
+
+	sendmessages := messages
+
+	fmt.Printf("Producer %d Topic to send: %s \n", producerid, targetTopic1)
+	fmt.Printf("Producer %d sets partitionID: %d \n", producerid, targetPartition)
+
+	var testifleinput []byte
+	var jsonMsg structs.MyInfo
+	var startTime int64
+	var jsonOutput []byte
+
+	if testifleinput == nil {
+		// testifleinput, err = ioutil.ReadFile("../../output-" + messageSize + "Kibi-rand")
+		if messageSize != ""{
+			testifleinput, err = ioutil.ReadFile(messageSize)
+			if err != nil {
+				fmt.Println(err)
+			}
+		}
+	}
+
+	jsonMsg.ScareMe = "Yes, please"
+	jsonMsg.Binaryfile = testifleinput
+	// sessionStarttime = time.Now().UnixNano()
+	jsonString := ""
+
+	i := 0
+
+	for {
+
+		// set sessionStartTime (Time the first message (i==0) was send)
+		if i == 0{
+			sessionStarttime = time.Now().UnixNano()
+		}
+		
+		// select compression / message format
+		switch compressionType {
+		case "json":
+			jsonMsg.TheTime = strconv.Itoa(int(time.Now().UnixNano()))	//--> important to use this command twice, because of accourate time measurement !
+			startTime = time.Now().UnixNano()
+			jsonOutput, _ := json.Marshal(&jsonMsg)
+
+			jsonString = (string)(jsonOutput)
+			// println(jsonString)
+		case "avro":
+			jsonOutput, startTime = encoding.EncodeAvro(0, i, jsonMsg.ScareMe, jsonMsg.Binaryfile) //get encoded message + encoding time
+			jsonString = (string)(jsonOutput)
+		case "proto":
+			jsonOutput, startTime = encoding.EncodeProto(0, i, jsonMsg.ScareMe, jsonMsg.Binaryfile)
+			jsonString = (string)(jsonOutput)
+		}
+
+		msg := &sarama.ProducerMessage{
+			Topic: topic,
+			Key:   sarama.StringEncoder("myInfo"),
+			Value: sarama.StringEncoder(jsonString),
+			Partition: partition,
+		}
+
+		// fmt.Println("Sending Message : ")
+		// fmt.Println(msg)
+
+		// send message
+		messageStartTime := time.Now()
+
+		// write encoding time
+		duration:= messageStartTime.UnixNano() - startTime
+		durationMs := float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
+		csvStruct.EncodingTime[0][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
+
+			// async producer
+			// fmt.Println(i)
+			// producer.Input() <- msg
+			// println("after sending")
+			select {
+			case producer.Input() <- msg:
+				i++
+							// fmt.Println(i)
+
+			case err := <-producer.Errors():
+				fmt.Println("Failed to produce message", err)
+			case success := <-producer.Successes():
+				// if i == 0 {
+					println("sjdhaslkcxsadölsadkj")
+					fmt.Printf("Sent message value='%s' at partition = %d at topic %s, offset = %d\n", success.Value, success.Partition, success.Topic, success.Offset)
+				// }
+			default:
+				// wait for each send interval --> create a fixed transfer rate of messages
+				time.Sleep(time.Duration(csvStruct.MsDelay) * time.Millisecond)
+			}
+		messageEndTime:= time.Since(messageStartTime).Seconds()*1000
+
+		// // set start of the round trip time
+		// csvStruct.RoundTripTime [i] = strconv.FormatFloat(float64(messageStartTime.UnixNano()), 'f', 6, 64)
+		csvStruct.SendTimeStamps[i] = strconv.FormatInt(messageStartTime.UnixNano(), 10)
+		// fmt.Println(csvStruct.SendTimeStamps[i])
+
+		if i < 3{
+			fmt.Printf("Size of msg: %d \n", len(jsonString))
+			csvStruct.Filesize = int64(len(jsonString))
+		}
+		csvStruct.SendTime[0][i] = strconv.FormatFloat(messageEndTime, 'f', 6, 64)
+		// completeTime = completeTime + messageEndTime
+		// fmt.Printf("Message %d send to partition %d offset %d \n", i, partition, offset)
+
+		if i == sendmessages{
+			break
+		}
 
 	}
 	elapsed := time.Since(starttime)
@@ -614,8 +789,238 @@ starttime := time.Now()
 	return
 }
 
-// starting a process with a consumer and a producer to simulate multiple message exchanges over the message bus
-func prodcon(consendID int, messages int, targetTopic1 string, conPartition int32, targetTopic2 string, targetPartition int32, compressionType string) {
+// starting a process with a consumer and a AsyncProducer to simulate multiple message exchanges over the message bus
+func asyncProdcon(consendID int, messages int, targetTopic1 string, conPartition int32, targetTopic2 string, targetPartition int32, compressionType string) {
+	//contains producer and consumer functionality
+
+	fmt.Printf("Starting Producer with Consumer %d \n", consendID)
+	fmt.Printf("Consumer + Producer %d Topic to consume: %s \n", consendID, targetTopic1)
+	fmt.Printf("Consumer + Producer %d get partitionID: %d \n", consendID, conPartition)
+
+	//	segmenthelper.LogInit("experimental.kafka-producer", "experimental", "test")
+
+	// Setup configuration
+	configProducer := sarama.NewConfig()
+	configConsumer := sarama.NewConfig()
+
+	// Return specifies what channels will be populated.
+	// If they are set to true, you must read from
+	// config.Producer.Return.Successes = true
+	// The total number of times to retry sending a message (default 3).
+	configProducer.Producer.Retry.Max = 5
+
+	// The level of acknowledgement reliability needed from the broker.
+	configProducer.Producer.RequiredAcks = sarama.WaitForAll
+
+	configProducer.Producer.Partitioner = sarama.NewManualPartitioner //set the partition amnually siplyifes the test (no complex get and set partition!!!)
+
+	// for sync
+	configProducer.Producer.Return.Successes = true
+	//for batching ???
+	configProducer.Producer.Flush.MaxMessages = 1
+	//config consumer
+	configConsumer.Consumer.Return.Errors = true
+	// set consumtion size / messages
+	configConsumer.Consumer.Fetch.Max = int32(csvStruct.Filesize)
+
+	// brokers := []string{"127.0.0.1:9092"}
+
+	// my topic
+	// topic := targetTopic1
+	// *****************************************************************************************************************************************************
+	//Consumer + Producer Part
+	// Create new consumer + producer with modified message
+	println("Starting Consumer + Producer !!!")
+	masterConsumer, err := sarama.NewConsumer(brokers, configConsumer)
+	if err != nil {
+		panic(err)
+	}
+
+	defer func() {
+		if err := masterConsumer.Close(); err != nil {
+			panic(err)
+		}
+	}()
+
+	producerInst, err := sarama.NewAsyncProducer(brokers, configProducer)
+	if err != nil {
+		panic(err)
+	}
+
+	defer func() {
+		if err := producerInst.Close(); err != nil {
+			panic(err)
+		}
+	}()
+
+	// the topic where we want to listen at
+	// topic := targetTopic2
+	// fmt.Printf("targetTopic1: %s \n", targetTopic1)
+
+	// get partition ID of producer
+	partition := conPartition
+
+
+	// create the consumer on all partitions
+	consumerinst, err := masterConsumer.ConsumePartition(targetTopic1, partition, sarama.OffsetOldest) //impotant: partition needs to be the same, the producer pushes to
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("Start consumer + producer: %d listening to some messages ... please send me something ... \n", consendID)
+	// endless loop, until someone kills me
+	sendmessages := messages
+	starttime := time.Now()
+
+	for i := 0; i < sendmessages; i++ {
+		// fmt.Print(" ... waiting for message ...")
+			
+		// read the message
+		msg := <-consumerinst.Messages()
+
+		messageReceivedTime := time.Now().UnixNano()	// --> wenn die Zeit hier genommen wird, wird die Laufzeit der Forschleife mit eingerechnet
+
+		keyString := string(msg.Key)
+		// println(string(msg.Value))
+
+		if keyString != "myInfo" {
+			fmt.Println("received key is not myInfo ... sorry ... message ignore")
+			continue
+		}
+
+		var jsonRecord structs.MyInfo
+		var endTime int64
+		var startTime int64
+		var jsonOutput []byte
+		// check compressionType
+		switch compressionType {
+		case "json":
+			// startTime := time.Now().UnixNano()
+			json.Unmarshal(msg.Value, &jsonRecord)
+			endTime = time.Now().UnixNano()
+
+		case "avro":
+			jsonRecord, endTime = encoding.DecodeAvro(consendID, i, msg.Value)
+		case "proto":
+			jsonRecord, endTime = encoding.DecodeProto(consendID, i, msg.Value)
+		}
+
+		// write decodingTime
+		duration:= endTime - messageReceivedTime
+		durationMs := float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
+		csvStruct.DecodingTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
+
+		timevalue, err := strconv.ParseInt(jsonRecord.TheTime, 10, 64)
+		if err != nil {
+			log.Fatal("%s", err)
+		}
+
+		duration = messageReceivedTime - timevalue
+
+		// // get values fo encodingTime and sendTime
+		// encodingTime, err := strconv.ParseFloat(csvStruct.EncodingTime[consendID -1][i], 64)
+		// if err != nil{
+		// 	panic(err)
+		// }
+
+		// sendTime, err := strconv.ParseFloat(csvStruct.SendTime[consendID -1][i], 64)
+		// if err != nil{
+		// 	panic(err)
+		// }
+
+		durationMs  = float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
+
+		// // measured consumeTime includes encoding- and sendTime, therefore we have to substract
+		// durationMs = durationMs - (encodingTime + sendTime)
+
+		// println(durationMs)
+		csvStruct.ConsumeTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
+		// completeTime = completeTime + durationMs	 
+
+
+		// fmt.Printf("got myInfo number %d on consumer + producer %d \n", i, consumerID)
+
+		jsonRecord.ScareMe = jsonRecord.ScareMe + strconv.Itoa(consendID)
+
+		jsonString := ""
+
+		// wait for each send interval --> create a fixed transfer rate of messages
+		// if i != 0{
+		// 	// if (i % 100) == 0{
+		// 		// println("Wait 100 msec before sending again 100 messages")
+		// 		time.Sleep(time.Duration(csvStruct.MsDelay) * time.Millisecond)
+		// 	// }
+		// }	
+
+		// select compression / message format
+		switch compressionType {
+		case "json":
+			jsonRecord.TheTime = strconv.Itoa(int(time.Now().UnixNano()))
+			startTime = time.Now().UnixNano()
+			jsonOutput, _ := json.Marshal(&jsonRecord)
+			// endTime := time.Now().UnixNano()
+
+			jsonString = (string)(jsonOutput)	
+		case "avro":
+			jsonOutput, startTime = encoding.EncodeAvro(consendID, i, jsonRecord.ScareMe, jsonRecord.Binaryfile)
+			jsonString = (string)(jsonOutput)
+		case "proto":
+			jsonOutput, startTime = encoding.EncodeProto(consendID, i, jsonRecord.ScareMe, jsonRecord.Binaryfile)
+			jsonString = (string)(jsonOutput)
+		}
+
+		msgout := &sarama.ProducerMessage{
+			Topic: targetTopic2,
+			Key:   sarama.StringEncoder("myInfo"),
+			Value: sarama.StringEncoder(jsonString),
+			Partition: targetPartition,
+		}
+
+		// fmt.Println("Sending Message : ")
+		// fmt.Println(msg)
+		messageStartTime := time.Now()
+
+		// write encoding time
+		duration = messageStartTime.UnixNano() - startTime
+		durationMs  = float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
+		csvStruct.EncodingTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
+
+			// async producer
+			producerInst.Input() <- msgout
+
+			select {
+			case err := <-producerInst.Errors():
+				fmt.Println("Failed to produce message", err)
+			// case success := <-producerInst.Successes():
+			// 	fmt.Printf("Sent message value='%s' at partition = %d at topic %s, offset = %d\n", success.Value, success.Partition, success.Topic, success.Offset)
+			default:
+				break
+			}
+
+		if err != nil {
+			panic(err)
+		}
+
+		messageEndTime:= time.Since(messageStartTime).Seconds()*1000
+		csvStruct.SendTime[consendID][i] = strconv.FormatFloat(messageEndTime, 'f', 6, 64)
+		// completeTime = completeTime + messageEndTime
+
+		if i < 1{
+			fmt.Printf("Consumer + Producer %d sets partitionID: ", consendID)
+			println(partition)
+			fmt.Printf("Consumer + Producer %d Topic to send: %s \n", consendID, targetTopic2)
+		// }
+		}
+
+		// fmt.Printf("Consumer + Producer %d send modified myInfo: %d to topic: %s \n", consumerID, i, targetTopic2)
+		// fmt.Print(jsonRecord.ScareMe)
+	}
+	elapsed := time.Since(starttime)
+	fmt.Printf("Consumer + Producer: %d receives and sends %d Messages -- elapsed time: %s \nAveragetime per message: %s \n", consendID, sendmessages, elapsed, elapsed/time.Duration(sendmessages))
+}
+
+// starting a process with a consumer and a SyncProducer to simulate multiple message exchanges over the message bus
+func syncProdcon(consendID int, messages int, targetTopic1 string, conPartition int32, targetTopic2 string, targetPartition int32, compressionType string) {
 	//contains producer and consumer functionality
 
 	fmt.Printf("Starting Producer with Consumer %d \n", consendID)
@@ -839,7 +1244,13 @@ func prodconStarter(topictemplate string){
 	topictemp := topictemplate
 	for i:=1; i <= countprodcon; i++{
 		fmt.Printf("ProdCon %d in starting process \n", i)
-		go prodcon(i, messages, (topictemp + strconv.Itoa(i-1)), 0, (topictemp + strconv.Itoa(i)), 0, compressionType)
+
+		if csvStruct.Testsystem == "SyncKafka"{
+			go syncProdcon(i, messages, (topictemp + strconv.Itoa(i-1)), 0, (topictemp + strconv.Itoa(i)), 0, compressionType)
+		}
+		if csvStruct.Testsystem == "AsyncKafka"{
+			go asyncProdcon(i, messages, (topictemp + strconv.Itoa(i-1)), 0, (topictemp + strconv.Itoa(i)), 0, compressionType)
+		}
 	}
 }
 

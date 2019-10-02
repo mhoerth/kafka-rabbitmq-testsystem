@@ -21,6 +21,7 @@ func main() {
 	usedSystem := "kafka"
 	interations := 1
 	delayTime := 100
+	synchronicity := "sync"
 
 	// testfiles
 	Kibi1 := "testfiles/output-1Kibi-rand-baseEnc"
@@ -49,9 +50,19 @@ func main() {
 		if len(os.Args) > 2{
 			if i == 2 {
 				usedSystem = os.Args[i]
+			
+				if os.Args[i] == "asynckafka"{
+					synchronicity = "async"
+					println("using async")
+				}else if os.Args[i] == "synckafka"{
+					synchronicity = "sync"
+					println("using sync")
+				}else{
+					println("using default , synchronicity --> sync")
+				}
 			}
 		}else{
-			println("Missing Testsystem !!!")
+			println("Using default Testsystem --> Kafka !!!")
 		}
 		if len(os.Args) > 3{
 			if i == 3 {
@@ -116,9 +127,10 @@ func main() {
 		if len(os.Args) > 8{
 			if i == 8 {
 				compressionType = os.Args[i]
-			}	
-		}else{
-			println("Missing compression type, -- using default (json) !!!")
+				
+			}else{
+				println("Missing compression type, -- using default (json) !!!")
+			}
 		}
 
 	}
@@ -126,12 +138,12 @@ func main() {
 	// start test regarding to the commandline parameters given by the user
 	if usedSystem == "test"{
 		// test kafka
-		kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, Kibi1, delayTime)
-		kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, Kibi10, delayTime)
-		kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, Kibi100, delayTime)
-		kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, Kibi500, delayTime)
-		kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, Kibi750, delayTime)
-		kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, Kibi960, delayTime)
+		kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, Kibi1, delayTime, synchronicity)
+		kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, Kibi10, delayTime, synchronicity)
+		kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, Kibi100, delayTime, synchronicity)
+		kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, Kibi500, delayTime, synchronicity)
+		kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, Kibi750, delayTime, synchronicity)
+		kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, Kibi960, delayTime, synchronicity)
 		kafka.CloseChannels()
 		// test rabbitmq
 		rabbit.Rabbit(interations, messages, topictemp, countprodcon, compressionType, Kibi1, delayTime)
@@ -143,17 +155,17 @@ func main() {
 		rabbit.CloseChannels()
 	}
 
-	if usedSystem == "kafka"{
+	if usedSystem == "kafka" || usedSystem == "synckafka" || usedSystem == "asynckafka"{
 		if messageSize == "test"{
-			kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, Kibi1, delayTime)
-			kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, Kibi10, delayTime)
-			kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, Kibi100, delayTime)
-			kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, Kibi500, delayTime)
-			kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, Kibi750, delayTime)
-			kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, Kibi960, delayTime)
+			kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, Kibi1, delayTime, synchronicity)
+			kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, Kibi10, delayTime, synchronicity)
+			kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, Kibi100, delayTime, synchronicity)
+			kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, Kibi500, delayTime, synchronicity)
+			kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, Kibi750, delayTime, synchronicity)
+			kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, Kibi960, delayTime, synchronicity)
 			kafka.CloseChannels()
 		}else{
-			kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, messageSize, delayTime)
+			kafka.Kafka(interations, messages, topictemp, countprodcon, compressionType, messageSize, delayTime, synchronicity)
 			rabbit.CloseChannels()
 		}
 	}
