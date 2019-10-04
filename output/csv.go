@@ -28,12 +28,12 @@ func Csv(csvStruct structs.Csv){
 	f.WriteString("ProducerEncodingTime;")
 	f.WriteString("ProducerSendTime;")
 	if csvStruct.CountProdCon > 0{
-		f.WriteString("Consumer&ProducerConsumeTime;")
+		f.WriteString("Consumer&ProducerMessageTransmitTime;")
 		f.WriteString("Consumer&ProducerDecodeTime;")	
 		f.WriteString("Consumer&ProducerEncodeTime;")
 		f.WriteString("Consumer&ProducerSendTime;")
 	}
-	f.WriteString("LastConsumerTime;")
+	f.WriteString("LastConsumerMessageTransmitTime;")
 	f.WriteString("ConsumerDecodingTime;")
 	f.WriteString("RoundTripTime;")
 	f.WriteString("\n")
@@ -45,7 +45,7 @@ func Csv(csvStruct structs.Csv){
 		for cp:=1; cp <= csvStruct.CountProdCon; cp++{
 			// f.WriteString("Consumer&ProducerSendTime: ")
 			// f.WriteString(";")
-			f.WriteString(csvStruct.ConsumeTime[cp][i] + ";")
+			f.WriteString(csvStruct.ConsumeTime[cp -1][i] + ";")		//cp -1 because first prodcon writes its values into the field [0][i]
 			f.WriteString(csvStruct.DecodingTime[cp][i] + ";")
 			f.WriteString(csvStruct.EncodingTime[cp][i] + ";")
 			f.WriteString(csvStruct.SendTime[cp][i])
@@ -56,8 +56,8 @@ func Csv(csvStruct structs.Csv){
 			}
 		}
 		// f.WriteString("ConsumerTime: ")
-		f.WriteString(csvStruct.ConsumeTime[0][i] + ";")
-		f.WriteString(csvStruct.DecodingTime[0][i] + ";")
+		f.WriteString(csvStruct.ConsumeTime[csvStruct.CountProdCon][i] + ";")
+		f.WriteString(csvStruct.DecodingTime[csvStruct.CountProdCon][i] + ";")
 		f.WriteString(csvStruct.RoundTripTime[i])
 		f.WriteString("; \n")
 	}
@@ -91,9 +91,9 @@ func ComputeRoundTripTime(sendTimes[100000] string, consumeTimes[100000]string, 
 // ComputeConsumeTime is used to correct the consume time from containing the encoding- sending and consuetime to only contain the consumetime
 func ComputeConsumeTime(EncodingTime[9][100000] string, SendTime[9][100000] string, ConsumeTime[9][100000] string, instances int, messages int)([9][100000]string){
 	corrConsumeTime := ConsumeTime
-	// var encodingTime float64
+	var encodingTime float64
 	// var sendTime float64
-	// var err error
+	var err error
 
 	for inst:=0; inst <= instances; inst++{
 		for i:=0; i < messages; i++{
@@ -105,7 +105,7 @@ func ComputeConsumeTime(EncodingTime[9][100000] string, SendTime[9][100000] stri
 				// 		panic(err)
 				// 	}
 				// }else{
-					encodingTime, err := strconv.ParseFloat(EncodingTime[inst][i], 64)
+					encodingTime, err = strconv.ParseFloat(EncodingTime[inst][i], 64)
 					if err != nil{
 						panic(err)
 					}	

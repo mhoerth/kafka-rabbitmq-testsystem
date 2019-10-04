@@ -363,7 +363,7 @@ func consumer(conQueue string) {
 			duration = messageReceivedTime - timevalue
 			durationMs = float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
 
-			csvStruct.ConsumeTime[0][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
+			csvStruct.ConsumeTime[csvStruct.CountProdCon][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
 			// completeTime = completeTime + durationMs
 
 			// compute complete time
@@ -496,7 +496,7 @@ func conprod(consendID int, conQueueName string, prodQueueName string) {
 				duration = messageReceivedTime - timevalue
 				durationMs = float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
 
-				csvStruct.ConsumeTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
+				csvStruct.ConsumeTime[consendID -1][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
 				//    completeTime = completeTime + durationMs
 
 				//   fmt.Printf("Duration of Message: %d \n", duration)

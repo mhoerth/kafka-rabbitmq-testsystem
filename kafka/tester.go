@@ -62,7 +62,7 @@ func Kafka(interations int, messageamount int, topic string, conProdInst int, co
 		configEnv(topictemp)
 		starttime := time.Now()
 		if synchronicity == "sync"{
-			go syncProducer(1, messages, (topictemp + strconv.Itoa(0)), 0)
+			go syncProducer(0, messages, (topictemp + strconv.Itoa(0)), 0)
 		}
 		if synchronicity == "async"{
 			go asyncProducer(1, messages, (topictemp + strconv.Itoa(0)), 0)
@@ -70,7 +70,7 @@ func Kafka(interations int, messageamount int, topic string, conProdInst int, co
 		// go consumergroup(1, (topictemp + strconv.Itoa(0)))
 		go prodconStarter(topictemp)
 	
-		go consumer(1, messages, (topictemp + strconv.Itoa(countprodcon)), 0)
+		go consumer(csvStruct.CountProdCon, messages, (topictemp + strconv.Itoa(countprodcon)), 0)
 		<-finishedsending
 		<-finishedconsumtion
 	
@@ -311,7 +311,7 @@ func syncProducer(producerid int, messages int, targetTopic1 string, targetParti
 		// write encoding time
 		duration:= messageStartTime.UnixNano() - startTime
 		durationMs := float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
-		csvStruct.EncodingTime[0][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
+		csvStruct.EncodingTime[producerid][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
 
 			// sync producer
 			_, _, err := producer.SendMessage(msg)
@@ -331,7 +331,7 @@ func syncProducer(producerid int, messages int, targetTopic1 string, targetParti
 			fmt.Printf("Size of msg: %d \n", len(jsonString))
 			csvStruct.Filesize = int64(len(jsonString))
 		}
-		csvStruct.SendTime[0][i] = strconv.FormatFloat(messageEndTime, 'f', 6, 64)
+		csvStruct.SendTime[producerid][i] = strconv.FormatFloat(messageEndTime, 'f', 6, 64)
 		// completeTime = completeTime + messageEndTime
 		// fmt.Printf("Message %d send to partition %d offset %d \n", i, partition, offset)
 
@@ -416,10 +416,15 @@ func asyncProducer(producerid int, messages int, targetTopic1 string, targetPart
 	// sessionStarttime = time.Now().UnixNano()
 	jsonString := ""
 
-	i := 0
+	for i:=0; i < sendmessages; i++ {
 
-	for {
-
+		// wait for each send interval --> create a fixed transfer rate of messages
+		if i != 0{
+			// if (i % 100) == 0{
+				// println("Wait 100 msec before sending again 100 messages")
+				time.Sleep(time.Duration(csvStruct.MsDelay) * time.Millisecond)
+			// }
+		}
 		// set sessionStartTime (Time the first message (i==0) was send)
 		if i == 0{
 			sessionStarttime = time.Now().UnixNano()
@@ -464,22 +469,35 @@ func asyncProducer(producerid int, messages int, targetTopic1 string, targetPart
 			// fmt.Println(i)
 			// producer.Input() <- msg
 			// println("after sending")
-			select {
-			case producer.Input() <- msg:
-				i++
-							// fmt.Println(i)
 
-			case err := <-producer.Errors():
-				fmt.Println("Failed to produce message", err)
-			case success := <-producer.Successes():
-				// if i == 0 {
-					println("sjdhaslkcxsadölsadkj")
-					fmt.Printf("Sent message value='%s' at partition = %d at topic %s, offset = %d\n", success.Value, success.Partition, success.Topic, success.Offset)
-				// }
-			default:
-				// wait for each send interval --> create a fixed transfer rate of messages
-				time.Sleep(time.Duration(csvStruct.MsDelay) * time.Millisecond)
+			messageSend := false
+
+			for{
+				select {
+				case producer.Input() <- msg:
+					messageSend = true
+
+				case err := <- producer.Errors():
+					fmt.Println("Failed to produce message", err)
+				case success := <- producer.Successes():
+					if i == 1{
+						fmt.Printf("Sent message value='%s' at partition = %d at topic %s, offset = %d\n", success.Value, success.Partition, success.Topic, success.Offset)
+					}
+					if i < 3{
+						fmt.Printf("Size of msg: %d \n", len(jsonString))
+						csvStruct.Filesize = int64(len(jsonString))
+					}
+
+				default:
+					// wait for each send interval --> create a fixed transfer rate of messages
+					// time.Sleep(time.Duration(csvStruct.MsDelay) * time.Millisecond)
+				}	
+
+				if messageSend == true{
+					break
+				}
 			}
+
 		messageEndTime:= time.Since(messageStartTime).Seconds()*1000
 
 		// // set start of the round trip time
@@ -487,10 +505,6 @@ func asyncProducer(producerid int, messages int, targetTopic1 string, targetPart
 		csvStruct.SendTimeStamps[i] = strconv.FormatInt(messageStartTime.UnixNano(), 10)
 		// fmt.Println(csvStruct.SendTimeStamps[i])
 
-		if i < 3{
-			fmt.Printf("Size of msg: %d \n", len(jsonString))
-			csvStruct.Filesize = int64(len(jsonString))
-		}
 		csvStruct.SendTime[0][i] = strconv.FormatFloat(messageEndTime, 'f', 6, 64)
 		// completeTime = completeTime + messageEndTime
 		// fmt.Printf("Message %d send to partition %d offset %d \n", i, partition, offset)
@@ -596,7 +610,7 @@ func consumer(consumerID int, messages int, targetTopic1 string, targetPartition
 		// write decodingTime
 		duration:= endTime - messageReceivedTime
 		durationMs := float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
-		csvStruct.DecodingTime[0][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
+		csvStruct.DecodingTime[consumerID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
 
 		// println(jsonRecord.TheTime)
 		timevalue, err := strconv.ParseInt(jsonRecord.TheTime, 10, 64)
@@ -624,7 +638,7 @@ func consumer(consumerID int, messages int, targetTopic1 string, targetPartition
 
 		// // measured consumeTime includes encoding- and sendTime, therefore we have to substract
 		// durationMs = durationMs - (encodingTime + sendTime)
-		csvStruct.ConsumeTime[0][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
+		csvStruct.ConsumeTime[consumerID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
 
 		// completeTime = completeTime + durationMs	 
 		// compute complete time
@@ -934,7 +948,7 @@ func asyncProdcon(consendID int, messages int, targetTopic1 string, conPartition
 		// durationMs = durationMs - (encodingTime + sendTime)
 
 		// println(durationMs)
-		csvStruct.ConsumeTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
+		csvStruct.ConsumeTime[consendID -1][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)		//consendID -1 because of the relation producer number 1 get ID 0 and consumer 1 max(CountProdCon)
 		// completeTime = completeTime + durationMs	 
 
 
@@ -986,31 +1000,42 @@ func asyncProdcon(consendID int, messages int, targetTopic1 string, conPartition
 		csvStruct.EncodingTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
 
 			// async producer
-			producerInst.Input() <- msgout
+			messageSend := false
 
-			select {
-			case err := <-producerInst.Errors():
-				fmt.Println("Failed to produce message", err)
-			// case success := <-producerInst.Successes():
-			// 	fmt.Printf("Sent message value='%s' at partition = %d at topic %s, offset = %d\n", success.Value, success.Partition, success.Topic, success.Offset)
-			default:
-				break
+			for{
+				select {
+				case producerInst.Input() <- msgout:
+					messageSend = true
+
+				case err := <- producerInst.Errors():
+					fmt.Println("Failed to produce message", err)
+				case success := <- producerInst.Successes():
+					if i == 1{
+						fmt.Printf("Sent message value='%s' at partition = %d at topic %s, offset = %d\n", success.Value, success.Partition, success.Topic, success.Offset)
+					}
+					if i < 3{
+						fmt.Printf("Size of msg: %d \n", len(jsonString))
+						csvStruct.Filesize = int64(len(jsonString))
+					}
+					if i < 1{
+						fmt.Printf("Consumer + Producer %d sets partitionID: ", consendID)
+						println(partition)
+						fmt.Printf("Consumer + Producer %d Topic to send: %s \n", consendID, targetTopic2)
+					}
+
+				default:
+					// wait for each send interval --> create a fixed transfer rate of messages
+					time.Sleep(time.Duration(csvStruct.MsDelay) * time.Millisecond)
+				}	
+
+				if messageSend == true{
+					break
+				}
 			}
-
-		if err != nil {
-			panic(err)
-		}
 
 		messageEndTime:= time.Since(messageStartTime).Seconds()*1000
 		csvStruct.SendTime[consendID][i] = strconv.FormatFloat(messageEndTime, 'f', 6, 64)
 		// completeTime = completeTime + messageEndTime
-
-		if i < 1{
-			fmt.Printf("Consumer + Producer %d sets partitionID: ", consendID)
-			println(partition)
-			fmt.Printf("Consumer + Producer %d Topic to send: %s \n", consendID, targetTopic2)
-		// }
-		}
 
 		// fmt.Printf("Consumer + Producer %d send modified myInfo: %d to topic: %s \n", consumerID, i, targetTopic2)
 		// fmt.Print(jsonRecord.ScareMe)
@@ -1164,7 +1189,7 @@ func syncProdcon(consendID int, messages int, targetTopic1 string, conPartition 
 		// durationMs = durationMs - (encodingTime + sendTime)
 
 		// println(durationMs)
-		csvStruct.ConsumeTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
+		csvStruct.ConsumeTime[consendID -1][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)			//consendID -1 because of the relation producer number 1 get ID 0 and consumer 1 max(CountProdCon)
 		// completeTime = completeTime + durationMs	 
 
 
