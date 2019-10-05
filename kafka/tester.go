@@ -361,10 +361,11 @@ func asyncProducer(producerid int, messages int, targetTopic1 string, targetPart
 	// The level of acknowledgement reliability needed from the broker.
 	config.Producer.RequiredAcks = sarama.WaitForAll
 
-	// for sync
-	config.Producer.Return.Successes = true
+	// for async
+	config.Producer.Return.Successes = false
 	//for batching ???
 	config.Producer.Flush.MaxMessages = 1
+	config.Producer.Flush.Messages = 1
 
 	config.Producer.Partitioner = sarama.NewManualPartitioner //set the partition amnually siplyifes the test (no complex get and set partition!!!)
 
@@ -428,6 +429,7 @@ func asyncProducer(producerid int, messages int, targetTopic1 string, targetPart
 		// set sessionStartTime (Time the first message (i==0) was send)
 		if i == 0{
 			sessionStarttime = time.Now().UnixNano()
+			println(sessionStarttime)
 		}
 		
 		// select compression / message format
@@ -470,33 +472,43 @@ func asyncProducer(producerid int, messages int, targetTopic1 string, targetPart
 			// producer.Input() <- msg
 			// println("after sending")
 
-			messageSend := false
+			// messageSend := false
+			// println("before sneding")
+			producer.Input() <- msg
+			// println("Producer: " + strconv.Itoa(i))
+			// for{
+				// select {
+				// // case producer.Input() <- msg:
+				// // 	// messageSend = true
+				// // 	// <- producer.Successes()
+				// // 	success := <- producer.Successes()
+				// // 	println("Send message:" + strconv.Itoa(i))
 
-			for{
-				select {
-				case producer.Input() <- msg:
-					messageSend = true
+				// // 	if i == 0{
+				// // 		fmt.Printf("Sent message value='%s' at partition = %d at topic %s, offset = %d\n", success.Value, success.Partition, success.Topic, success.Offset)
+				// // 	}
 
-				case err := <- producer.Errors():
-					fmt.Println("Failed to produce message", err)
-				case success := <- producer.Successes():
-					if i == 1{
-						fmt.Printf("Sent message value='%s' at partition = %d at topic %s, offset = %d\n", success.Value, success.Partition, success.Topic, success.Offset)
-					}
-					if i < 3{
-						fmt.Printf("Size of msg: %d \n", len(jsonString))
-						csvStruct.Filesize = int64(len(jsonString))
-					}
+				// case err := <- producer.Errors():
+				// 	fmt.Println("Failed to produce message", err)
+				// // case success := <- producer.Successes():
+				// // 	// if i == 1{
+				// // 		fmt.Printf("Sent message value='%s' at partition = %d at topic %s, offset = %d\n", success.Value, success.Partition, success.Topic, success.Offset)
+				// // 	// }
+				// // 	if i < 3{
+				// // 		fmt.Printf("Size of msg: %d \n", len(jsonString))
+				// // 		csvStruct.Filesize = int64(len(jsonString))
+				// // 	}
+				// 	// messageSend = true
 
-				default:
-					// wait for each send interval --> create a fixed transfer rate of messages
-					// time.Sleep(time.Duration(csvStruct.MsDelay) * time.Millisecond)
-				}	
+				// default:
+				// 	// wait for each send interval --> create a fixed transfer rate of messages
+				// 	// time.Sleep(time.Duration(csvStruct.MsDelay) * time.Millisecond)
+				// }	
 
-				if messageSend == true{
-					break
-				}
-			}
+				// if messageSend == true{
+				// 	break
+				// }
+			// }
 
 		messageEndTime:= time.Since(messageStartTime).Seconds()*1000
 
@@ -623,6 +635,8 @@ func consumer(consumerID int, messages int, targetTopic1 string, targetPartition
 		// }
 
 		duration = messageReceivedTime - timevalue
+		// fmt.Println("Timestamp: %d ReceivedTime: %d Result: %d", timevalue, messageReceivedTime, duration)
+
 		durationMs = float64(duration) / float64(1000000) //Nanosekunden in Milisekunden
 
 		// // get values fo encodingTime and sendTime
@@ -645,6 +659,8 @@ func consumer(consumerID int, messages int, targetTopic1 string, targetPartition
 		// correct the complete time --> complete time for sending and receiving != sum(sendtime + receivetime of all messages)
 		if i == (sendmessages -1){
 			sessionEndtime := time.Now().UnixNano()
+			println(sessionEndtime)
+			println(sessionStarttime)
 			sendReceiveDuration := sessionEndtime - sessionStarttime
 			// sessionEndtimeMS := float64(sessionEndtime) / float64(1000000) //Nanosekunden in Milisekunden
 			// sessionStarttimeMS := float64(sessionStarttime) / float64(1000000) //Nanosekunden in Milisekunden
@@ -829,9 +845,10 @@ func asyncProdcon(consendID int, messages int, targetTopic1 string, conPartition
 	configProducer.Producer.Partitioner = sarama.NewManualPartitioner //set the partition amnually siplyifes the test (no complex get and set partition!!!)
 
 	// for sync
-	configProducer.Producer.Return.Successes = true
+	configProducer.Producer.Return.Successes = false
 	//for batching ???
 	configProducer.Producer.Flush.MaxMessages = 1
+	configProducer.Producer.Flush.Messages = 1
 	//config consumer
 	configConsumer.Consumer.Return.Errors = true
 	// set consumtion size / messages
@@ -1000,38 +1017,46 @@ func asyncProdcon(consendID int, messages int, targetTopic1 string, conPartition
 		csvStruct.EncodingTime[consendID][i] = strconv.FormatFloat(durationMs, 'f', 6, 64)
 
 			// async producer
-			messageSend := false
+			// messageSend := false
+			producerInst.Input() <- msgout
+			// println("Consumer+Producer: " + strconv.Itoa(i))
 
-			for{
-				select {
-				case producerInst.Input() <- msgout:
-					messageSend = true
+			// for{
+				// select {
+				// // case producerInst.Input() <- msgout:
+				// // 	// messageSend = true
+				// // 	// <- producerInst.Successes()
+				// // 	success := <- producerInst.Successes()
+				// // 	// println("Send message:" + strconv.Itoa(i))
+				// // 	if i == 0{
+				// // 		fmt.Printf("Sent message value='%s' at partition = %d at topic %s, offset = %d\n", success.Value, success.Partition, success.Topic, success.Offset)
+				// // 	}
 
-				case err := <- producerInst.Errors():
-					fmt.Println("Failed to produce message", err)
-				case success := <- producerInst.Successes():
-					if i == 1{
-						fmt.Printf("Sent message value='%s' at partition = %d at topic %s, offset = %d\n", success.Value, success.Partition, success.Topic, success.Offset)
-					}
-					if i < 3{
-						fmt.Printf("Size of msg: %d \n", len(jsonString))
-						csvStruct.Filesize = int64(len(jsonString))
-					}
-					if i < 1{
-						fmt.Printf("Consumer + Producer %d sets partitionID: ", consendID)
-						println(partition)
-						fmt.Printf("Consumer + Producer %d Topic to send: %s \n", consendID, targetTopic2)
-					}
+				// case err := <- producerInst.Errors():
+				// 	fmt.Println("Failed to produce message", err)
+				// // case success := <- producerInst.Successes():
+				// // 	if i == 1{
+				// // 		fmt.Printf("Sent message value='%s' at partition = %d at topic %s, offset = %d\n", success.Value, success.Partition, success.Topic, success.Offset)
+				// // 	}
+				// // 	if i < 3{
+				// // 		fmt.Printf("Size of msg: %d \n", len(jsonString))
+				// // 		csvStruct.Filesize = int64(len(jsonString))
+				// // 	}
+				// // 	if i < 1{
+				// // 		fmt.Printf("Consumer + Producer %d sets partitionID: ", consendID)
+				// // 		println(partition)
+				// // 		fmt.Printf("Consumer + Producer %d Topic to send: %s \n", consendID, targetTopic2)
+				// // 	}
 
-				default:
-					// wait for each send interval --> create a fixed transfer rate of messages
-					time.Sleep(time.Duration(csvStruct.MsDelay) * time.Millisecond)
-				}	
+				// default:
+				// 	// wait for each send interval --> create a fixed transfer rate of messages
+				// 	// time.Sleep(time.Duration(csvStruct.MsDelay) * time.Millisecond)
+				// }	
 
-				if messageSend == true{
-					break
-				}
-			}
+			// 	if messageSend == true{
+			// 		break
+			// 	}
+			// }
 
 		messageEndTime:= time.Since(messageStartTime).Seconds()*1000
 		csvStruct.SendTime[consendID][i] = strconv.FormatFloat(messageEndTime, 'f', 6, 64)

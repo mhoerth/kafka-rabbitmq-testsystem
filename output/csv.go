@@ -111,6 +111,7 @@ func ComputeConsumeTime(EncodingTime[9][100000] string, SendTime[9][100000] stri
 					}	
 				// }
 	
+				// println(inst)
 				consumeTime, err := strconv.ParseFloat(ConsumeTime[inst][i], 64)
 				if err != nil{
 					panic(err)
