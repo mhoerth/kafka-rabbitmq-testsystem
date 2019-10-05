@@ -21,7 +21,7 @@ func main() {
 	usedSystem := "kafka"
 	interations := 1
 	delayTime := 100
-	synchronicity := "sync"
+	synchronicity := "async"
 
 	// testfiles
 	Kibi1 := "testfiles/output-1Kibi-rand-baseEnc"
