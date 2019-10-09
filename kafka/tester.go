@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 	"log"
+	"os/exec"
 
 	"../encoding"
 	"../structs"
@@ -58,6 +59,12 @@ func Kafka(interations int, messageamount int, topic string, conProdInst int, co
 	brokers = []string{"127.0.0.1:9092"}
 
 	for i:=0; i<interations; i++{
+
+		cpuStart, err := exec.Command("bash", "-c", "cat /proc/stat |grep cpu").Output()
+		if err != nil {
+			panic(err)
+		}	
+
 		csvStruct.Interation = i
 		configEnv(topictemp)
 		starttime := time.Now()
@@ -77,6 +84,10 @@ func Kafka(interations int, messageamount int, topic string, conProdInst int, co
 		elapsed := time.Since(starttime)
 		fmt.Printf("Elapsed time for sending and consuming: %s \nAveragetime per message: %s \n", elapsed, elapsed/time.Duration(messages))
 			
+		cpuStop, err := exec.Command("bash", "-c", "cat /proc/stat |grep cpu").Output()
+		if err != nil {
+			panic(err)
+		}	
 		println("Writing CSV file")
 		// go output.Csv("Kafka", messages, sendTime, consumeTime, encodingTime, countprodcon, consendTime, decodingTime, completeTime, messageSize, compressionType)
 		// compute RoundTripTime
@@ -84,7 +95,7 @@ func Kafka(interations int, messageamount int, topic string, conProdInst int, co
 		csvStruct.RoundTripTime = output.ComputeRoundTripTime(csvStruct.SendTimeStamps, csvStruct.ConsumeTimeStamps, csvStruct.Messages)
 		csvStruct.ConsumeTime = output.ComputeConsumeTime(csvStruct.EncodingTime, csvStruct.SendTime, csvStruct.ConsumeTime, csvStruct.CountProdCon, csvStruct.Messages)
 		// write csv file
-		output.Csv(csvStruct) //csvStruct is too large for a go routine
+		output.Csv(csvStruct, cpuStart, cpuStop) //csvStruct is too large for a go routine
 		deleteConfigEnv(topictemp)
 		time.Sleep(100000000) //wait 1 second before next testexecution
 	}

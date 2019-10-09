@@ -7,6 +7,7 @@ import (
 	"log"
 	"strconv"
 	"time"
+	"os/exec"
 
 	"../encoding"
 	"../structs"
@@ -46,6 +47,12 @@ func Rabbit(interations int, messageamount int, queue string, conProdInst int, c
 	csvStruct.MsDelay = delayTime
 
 	for i:=0; i<interations; i++{
+
+		cpuStart, err := exec.Command("bash", "-c", "cat /proc/stat |grep cpu").Output()
+		if err != nil {
+			panic(err)
+		}
+
 		csvStruct.Interation = i
 		starttime := time.Now()
 		// starttime2 := time.Now().UnixNano()
@@ -72,9 +79,15 @@ func Rabbit(interations int, messageamount int, queue string, conProdInst int, c
 		csvStruct.RoundTripTime = output.ComputeRoundTripTime(csvStruct.SendTimeStamps, csvStruct.ConsumeTimeStamps, csvStruct.Messages)
 		csvStruct.ConsumeTime = output.ComputeConsumeTime(csvStruct.EncodingTime, csvStruct.SendTime, csvStruct.ConsumeTime, csvStruct.CountProdCon, csvStruct.Messages)
 		
+
+		cpuStop, err := exec.Command("bash", "-c", "cat /proc/stat |grep cpu").Output()
+		if err != nil {
+			panic(err)
+		}
+
 		println("Writing CSV file")
 		// // write file
-		output.Csv(csvStruct) //csvStruct is too large for a go routine	
+		output.Csv(csvStruct, cpuStart, cpuStop) //csvStruct is too large for a go routine	
 		time.Sleep(1000000000) //wait 1 second before next testexecution
 	}
 }
