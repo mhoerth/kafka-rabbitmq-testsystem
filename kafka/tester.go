@@ -135,21 +135,51 @@ func configEnv(topictemplate string){
 	}()
 
 	//get all topic from cluster
-	topics, _ := cluster.Topics()
+	// topics, _ := cluster.Topics()
 	partitiontemp:= topictemplate
 		for i:=0; i<=countprodcon; i++{
-			if contains(topics, (partitiontemp + strconv.Itoa(i))) == false{
-				err = admin.CreateTopic((partitiontemp + strconv.Itoa(i)), &sarama.TopicDetail{
-					NumPartitions:     1,
-					ReplicationFactor: 1,
-				}, false)
-				if err != nil {
-					panic(err)
+		// 	if contains(topics, (partitiontemp + strconv.Itoa(i))) == false{
+		// 		err = admin.CreateTopic((partitiontemp + strconv.Itoa(i)), &sarama.TopicDetail{
+		// 			NumPartitions:     1,
+		// 			ReplicationFactor: 1,
+		// 		}, false)
+		// 		if err != nil {
+		// 			panic(err)
+		// 		}else{
+		// 			fmt.Printf("Topic %s created!!! \n", (partitiontemp + strconv.Itoa(i)))
+		// 		}
+		// 	}
+		// }
+
+
+		for {
+			created := false
+			//get all topic from cluster
+			topicList, err := admin.ListTopics()
+			for value := range topicList{
+				s := fmt.Sprintf("%s_", value)
+				fmt.Println(s)
+				if value == (partitiontemp + strconv.Itoa(i)){					
+					created = true
+					break
 				}else{
-					fmt.Printf("Topic %s created!!! \n", (partitiontemp + strconv.Itoa(i)))
+					err = admin.CreateTopic((partitiontemp + strconv.Itoa(i)), &sarama.TopicDetail{
+						NumPartitions:     1,
+						ReplicationFactor: 1,
+					}, false)
+					if err != nil {
+						log.Println(err)
+					}
+					fmt.Println("Wait a second")
+					time.Sleep(1000000000); //wait 1 second before next testexecution
 				}
 			}
+			if created == true{
+				break
+			}
 		}
+		fmt.Printf("Topic %s created!!! \n", (partitiontemp + strconv.Itoa(i)))
+	}
 }
 
 // cleanup the testsystem configuration to avoid measure mistakes after one test execution

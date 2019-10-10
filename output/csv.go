@@ -1,6 +1,7 @@
 package output
 
 import (
+	"math"
 	"os"
 	"regexp"
 	"strings"
@@ -117,7 +118,7 @@ func Csv(csvStruct structs.Csv, cpuStart []byte, cpuStop []byte){
 				f.WriteString(stop[i] + ";")
 
 				if i > 1 && i < 12{
-					counter, err := strconv.ParseInt(start[i],10,64)
+					counter, err := strconv.ParseInt(stop[i],10,64)
 					if err != nil{
 						panic(err)
 					}
@@ -134,7 +135,7 @@ func Csv(csvStruct structs.Csv, cpuStart []byte, cpuStop []byte){
 		}
 		f.WriteString("\n")
 	}
-	f.WriteString("CPU Idle Diff; Percentage \n")
+	f.WriteString("CPU Idle Diff; Percentage (abs) \n")
 		startCPU, err := strconv.ParseInt(startCPUString, 10, 64)
 		if err != nil{
 			panic(err)
@@ -160,7 +161,7 @@ func Csv(csvStruct structs.Csv, cpuStart []byte, cpuStop []byte){
 		stopCPUperc := float64(stopCPU) / float64(stopCPUsum)
 
 		// println(startCPUperc,stopCPUperc)
-		percDiff:=stopCPUperc - startCPUperc
+		percDiff:=math.Abs(stopCPUperc - startCPUperc)
 		// println(percDiff)
 
 		f.WriteString(strconv.FormatFloat((percDiff), 'f', 6, 64) + ";\n")
