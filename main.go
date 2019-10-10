@@ -58,7 +58,7 @@ func main() {
 					synchronicity = "sync"
 					println("using sync")
 				}else{
-					println("using default , synchronicity --> sync")
+					println("using default , synchronicity --> async")
 				}
 			}
 		}else{

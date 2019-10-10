@@ -68,30 +68,14 @@ func Csv(csvStruct structs.Csv, cpuStart []byte, cpuStop []byte){
 	f.WriteString("Filesize(byte);")
 	f.WriteString(strconv.FormatInt(csvStruct.Filesize, 10) + "\n")
 
-	// cmd := exec.Command("cat", "/proc/stat |grep cpu")
-    // out, err := cmd.CombinedOutput()
-    // if err != nil {
-    //     panic(err)
-    // }
-	// println(string(out))
-	
-	// out, err := exec.Command("cat", "/proc/stat |grep cpu").Output()
-	// out, err := exec.Command("bash", "-c", "cat /proc/stat |grep cpu").Output()
-    // if err != nil {
-    //     panic(err)
-    // }
-	// println(string(out))
-	// f.WriteString("; \n")
+	f.WriteString("\n")								//extra newline for readability
 
-	start := strings.Split(string(cpuStart), " ")
-	stop := strings.Split(string(cpuStop), " ")
+	// Write the cpu values intpo the resultfile
+	// First compile the delimiter expression.
+	re = regexp.MustCompile(`[ \n]`)
+	start := re.Split(string(cpuStart), -1)
 
-	// println(len(s))
-
-	// justString := strings.Join(s,";")
-	// println(justString)
-
-	// cpuCount := strings.Count(justString, "cpu")
+	stop := re.Split(string(cpuStop), -1)
 
 	f.WriteString(";;User mode;")
 	f.WriteString("Nice;")
@@ -102,26 +86,55 @@ func Csv(csvStruct structs.Csv, cpuStart []byte, cpuStop []byte){
 	f.WriteString("Soft Interupt;")
 	f.WriteString("Steal;")
 	f.WriteString("Guest;")
-	f.WriteString("Guest Nice;\n")
+	f.WriteString("Guest Nice;")
+	f.WriteString("Sum;\n")
 
 	startCPUString := string(start[5])
 	stopCPUString := string(stop[5])
+	var startCPUsum int64
+	var stopCPUsum int64
 
-	println("IdelTimeStart " + startCPUString)
-	println("IdelTimeStop " + stopCPUString)
+	// println("IdelTimeStart " + startCPUString)
+	// println("IdelTimeStop " + stopCPUString)
 
 
 	for counts:=0; counts < 2; counts ++{
+		var sum int64
 		for i:=0; i<12; i++{
 			if counts < 1{
 				f.WriteString(start[i] + ";")
+
+				if i > 1 && i < 12{
+					counter, err := strconv.ParseInt(start[i],10,64)
+					if err != nil{
+						panic(err)
+					}
+					sum = sum + counter
+					startCPUsum = startCPUsum + counter
+					// println(start[i])
+				}
 			}else{
 				f.WriteString(stop[i] + ";")
+
+				if i > 1 && i < 12{
+					counter, err := strconv.ParseInt(start[i],10,64)
+					if err != nil{
+						panic(err)
+					}
+					sum = sum + counter
+					stopCPUsum = stopCPUsum + counter
+					// println(start[i])
+				}
+
+
+			}
+			if i == 11{
+				f.WriteString(strconv.FormatInt(sum, 10) + ";")
 			}
 		}
 		f.WriteString("\n")
 	}
-	f.WriteString("CPU Idle Diff \n")
+	f.WriteString("CPU Idle Diff; Percentage \n")
 		startCPU, err := strconv.ParseInt(startCPUString, 10, 64)
 		if err != nil{
 			panic(err)
@@ -134,9 +147,23 @@ func Csv(csvStruct structs.Csv, cpuStart []byte, cpuStop []byte){
 		diff := stopCPU - startCPU
 
 		diffstring := strconv.Itoa(int(diff))
-		println("IdelTimeDiff " + diffstring)
+		// println("IdelTimeDiff " + diffstring)
 
-		f.WriteString(diffstring + "; \n")
+		f.WriteString(diffstring + ";")
+
+		// println("stratCPU: ", startCPU)
+		// println("stopCPU: ", stopCPU)
+		// println("startCPUsum: ", startCPUsum)
+		// println("stopCPUsum: ", stopCPUsum)
+
+		startCPUperc := float64(startCPU) / float64(startCPUsum)
+		stopCPUperc := float64(stopCPU) / float64(stopCPUsum)
+
+		// println(startCPUperc,stopCPUperc)
+		percDiff:=stopCPUperc - startCPUperc
+		// println(percDiff)
+
+		f.WriteString(strconv.FormatFloat((percDiff), 'f', 6, 64) + ";\n")
 }
 // ComputeRoundTripTime computes the RoundTripTime out of the SendTime and the ConsumeTime stored in arrays during the measurement
 func ComputeRoundTripTime(sendTimes[100000] string, consumeTimes[100000]string, messages int) ([100000]string) {

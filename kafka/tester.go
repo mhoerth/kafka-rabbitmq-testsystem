@@ -440,7 +440,7 @@ func asyncProducer(producerid int, messages int, targetTopic1 string, targetPart
 		// set sessionStartTime (Time the first message (i==0) was send)
 		if i == 0{
 			sessionStarttime = time.Now().UnixNano()
-			println(sessionStarttime)
+			// println(sessionStarttime)
 		}
 		
 		// select compression / message format
@@ -505,10 +505,10 @@ func asyncProducer(producerid int, messages int, targetTopic1 string, targetPart
 				// // 	// if i == 1{
 				// // 		fmt.Printf("Sent message value='%s' at partition = %d at topic %s, offset = %d\n", success.Value, success.Partition, success.Topic, success.Offset)
 				// // 	// }
-				// // 	if i < 3{
-				// // 		fmt.Printf("Size of msg: %d \n", len(jsonString))
-				// // 		csvStruct.Filesize = int64(len(jsonString))
-				// // 	}
+					if i < 3{
+						fmt.Printf("Size of msg: %d \n", len(jsonString))
+						csvStruct.Filesize = int64(len(jsonString))
+					}
 				// 	// messageSend = true
 
 				// default:
@@ -670,8 +670,8 @@ func consumer(consumerID int, messages int, targetTopic1 string, targetPartition
 		// correct the complete time --> complete time for sending and receiving != sum(sendtime + receivetime of all messages)
 		if i == (sendmessages -1){
 			sessionEndtime := time.Now().UnixNano()
-			println(sessionEndtime)
-			println(sessionStarttime)
+			// println(sessionEndtime)
+			// println(sessionStarttime)
 			sendReceiveDuration := sessionEndtime - sessionStarttime
 			// sessionEndtimeMS := float64(sessionEndtime) / float64(1000000) //Nanosekunden in Milisekunden
 			// sessionStarttimeMS := float64(sessionStarttime) / float64(1000000) //Nanosekunden in Milisekunden
