@@ -201,11 +201,6 @@ func deleteConfigEnv(topictemplate string){
 	partitiontemp:= topictemplate
 	for i:=0; i<=countprodcon; i++{
 				// wait until topic is deleted !!!
-
-
-				// HIER STIMMT WAS NICHT; ES WERDEN NUR BIS AUF DAS LETZTE TOPIC ALLE ANDEREN GELÖSCHT; SORGT FÜR ZEITMESSFEHLER !!!!
-
-
 				for {
 					deleted := false
 					//get all topic from cluster

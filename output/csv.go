@@ -1,7 +1,7 @@
 package output
 
 import (
-	"math"
+	// "math"
 	"os"
 	"regexp"
 	"strings"
@@ -145,9 +145,10 @@ func Csv(csvStruct structs.Csv, cpuStart []byte, cpuStop []byte){
 			panic(err)
 		}
 
-		diff := stopCPU - startCPU
+		diffIdle := stopCPU - startCPU
+		diffSum := stopCPUsum - startCPUsum
 
-		diffstring := strconv.Itoa(int(diff))
+		diffstring := strconv.Itoa(int(diffIdle))
 		// println("IdelTimeDiff " + diffstring)
 
 		f.WriteString(diffstring + ";")
@@ -157,11 +158,12 @@ func Csv(csvStruct structs.Csv, cpuStart []byte, cpuStop []byte){
 		// println("startCPUsum: ", startCPUsum)
 		// println("stopCPUsum: ", stopCPUsum)
 
-		startCPUperc := float64(startCPU) / float64(startCPUsum)
-		stopCPUperc := float64(stopCPU) / float64(stopCPUsum)
+		// startCPUperc := float64(startCPU) / float64(startCPUsum)
+		// stopCPUperc := float64(stopCPU) / float64(stopCPUsum)
 
 		// println(startCPUperc,stopCPUperc)
-		percDiff:=math.Abs(stopCPUperc - startCPUperc)
+		// percDiff:=math.Abs(stopCPUperc - startCPUperc)
+		percDiff:=float64(diffIdle) / float64(diffSum)
 		// println(percDiff)
 
 		f.WriteString(strconv.FormatFloat((percDiff), 'f', 6, 64) + ";\n")

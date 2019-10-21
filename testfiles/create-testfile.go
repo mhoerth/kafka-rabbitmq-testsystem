@@ -1,4 +1,4 @@
-// Testdaten erstellen
+// generate test data
 // https://stackoverflow.com/questions/16797380/how-to-create-a-10mb-file-filled-with-000000-data-in-golang
 
 package main
@@ -17,7 +17,7 @@ func main()  {
 
 func createTestFiles() {
 
-	size := int64(960 * 1024)
+	size := int64(1 * 1024)
 
 	token := make([]byte, size)
 	token2 := make([]byte, size)
@@ -27,15 +27,16 @@ func createTestFiles() {
 	var values []byte
 	
 	for i:=0; i < int(size); i++{
-			values = append(values, byte(rand.Intn(63)))
+			values = append(values, byte(rand.Intn(60)))
 			basebyte := base64.StdEncoding.EncodeToString(values)
 		if len(basebyte) > int(size) {
 			token2 = values
+			print(string(values))
 			break
 		}
 	}
 
-	fd, err := os.Create("output-960Kibi-rand-base64")
+	fd, err := os.Create("output-1Kibi-rand-base64_03")
 	if err != nil {
 		log.Fatal("Failed to create output")
 	}
