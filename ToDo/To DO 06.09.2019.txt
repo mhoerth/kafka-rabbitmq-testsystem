@@ -5,7 +5,7 @@
 [x]RabbitMQ Cluster
 --> currently a shellscript is necessary to bind the containers to a cluster
 [x]remove json marshall from the time measurement
-[]calculate round trip time with send+receive+send+receive time
+[x]calculate round trip time with send+receive+send+receive time
 [x]Zeitmessung bei Kafka ebenfalls komisch
 [x]ConsumerProducer process for Rabbit
 [x]integrate linkedIn avro library
@@ -14,7 +14,7 @@
 
 Findings
 - RabbitMQ:
-- consume method executed in fo loop,
+- consume method executed in for loop,
 1/3 more timeconsumtion (Kafka ???)
 --> possible explanation: with the loop, everytime a neu connection for consuming one message is established
 --> without the loop one consume channel is only once created and used for every message 
