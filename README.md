@@ -38,13 +38,20 @@ If you are using the provided docker-compose files within this repo nothing shou
 First:
 Run at least one of the docker-compose files to start at least one bus system (either kafka or rabbitmq)
 Second, after 'go build':
-./kafka-test-repo (bus name) (message amount) (delay in ms before next message is send) (topic/queue name) (consumer/producer instnces (up to 6)) (path to inputfile for binary data information) (encoding method (json, avro, proto))
+./kafka-test-repo (amount of iterations) (bus name) (message amount) (delay in ms before next message is send) (topic/queue name) (consumer/producer instances (up to 6)) (path to inputfile for binary data information) (encoding method (json, avro, proto))
+
 Example RabbitMQ:
-./kafka-test-repo rabbit 1000 0 guru 0 testfiles/output-1Kibi-rand
-./kafka-test-repo rabbit 1000 2 guru 0 testfiles/output-1Kibi-rand avro
-./kafka-test-repo rabbit 1000 10 guru 0 testfiles/output-1Kibi-rand proto
+./kafka-test-repo 1 rabbit 1000 0 guru 0 testfiles/output-1Kibi-rand-baseEnc
+./kafka-test-repo 1 rabbit 1000 2 guru 0 testfiles/output-1Kibi-rand-baseEnc avro
+./kafka-test-repo 1 rabbit 1000 10 guru 0 testfiles/output-1Kibi-rand-baseEnc proto
 
 Example Kafka:
-./kafka-test-repo kafka 1000 0 guru 0 testfiles/output-1Kibi-rand
-./kafka-test-repo kafka 1000 2 guru 0 testfiles/output-1Kibi-rand avro
-./kafka-test-repo kafka 1000 10 guru 0 testfiles/output-1Kibi-rand proto
+Synchronous call
+./kafka-test-repo 1 kafka 1000 0 guru 0 testfiles/output-1Kibi-rand-baseEnc
+./kafka-test-repo 1 kafka 1000 2 guru 0 testfiles/output-1Kibi-rand-baseEnc avro
+./kafka-test-repo 1 kafka 1000 10 guru 0 testfiles/output-1Kibi-rand-baseEnc proto
+
+asynchronous call
+./kafka-test-repo 1 asynckafka 1000 0 guru 0 testfiles/output-1Kibi-rand-baseEnc
+./kafka-test-repo 1 asynckafka 1000 2 guru 0 testfiles/output-1Kibi-rand-baseEnc avro
+./kafka-test-repo 1 asynckafka 1000 10 guru 0 testfiles/output-1Kibi-rand-baseEnc proto
