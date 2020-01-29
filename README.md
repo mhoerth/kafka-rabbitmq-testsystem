@@ -47,9 +47,9 @@ Example RabbitMQ:
 
 Example Kafka:  
 Synchronous call  
-./kafka-test-repo 1 kafka 1000 0 guru 0 testfiles/output-1Kibi-rand-baseEnc  
-./kafka-test-repo 1 kafka 1000 2 guru 0 testfiles/output-1Kibi-rand-baseEnc avro  
-./kafka-test-repo 1 kafka 1000 10 guru 0 testfiles/output-1Kibi-rand-baseEnc proto  
+./kafka-test-repo 1 synckafka 1000 0 guru 0 testfiles/output-1Kibi-rand-baseEnc  
+./kafka-test-repo 1 synckafka 1000 2 guru 0 testfiles/output-1Kibi-rand-baseEnc avro  
+./kafka-test-repo 1 synckafka 1000 10 guru 0 testfiles/output-1Kibi-rand-baseEnc proto  
 
 asynchronous call  
 ./kafka-test-repo 1 asynckafka 1000 0 guru 0 testfiles/output-1Kibi-rand-baseEnc  
