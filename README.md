@@ -1,6 +1,6 @@
 # Kafka + RabbitMQ testsystem
 
-This repository contains a testsystem for messagebus systems (currently Apache kafka and RabbitMQ), which is used in my bachelor thesis.
+This repository contains a testsystem for messagebus systems (currently Apache kafka and RabbitMQ), which is used in my bachelor thesis.  
 
 # Repository Description
 - contains bouth kafka and rabbitmq testfiles
@@ -17,11 +17,12 @@ This repository contains a testsystem for messagebus systems (currently Apache k
 - [structs](#structs), contains the used structs for testing (json struct and csv struct)
 - [testfiles](#testfiles), contains the used testfiles (binary files) for testing and the go file to create the testfiles
 - [testing](#testing), contains a basic kafka producer and consumer
-- [ToDo](#ToDo), contains a testdocument with open points and some findings during testing
-- the files 'start_testsystem.sh' and 'stop_testsystem.sh' are a method to start/configure a local testsystem (requires a running local instance of Kafka and Zookeeper)
 
 # Requirements
-On the basis of a golang image this testsystem needs a few other components to interact with the different bus syxstems and to use different encoding formats
+On the basis of  golang this testsystem needs a few other components to interact with the different bus systems and to use different encoding formats
+- golang version 1.10.4 or higher
+- docker client version 18.09.7 or higher
+- docker server (docker engine) version 19.03.5 or higher
 - [Sarama kafka client](https://github.com/Shopify/sarama) --> kafka interaction
 - [AMQP 0-9-1](https://github.com/streadway/amqp) --> rabbitmq interaction
 - [goavro](https://github.com/linkedin/goavro) --> avro encoding
@@ -32,19 +33,26 @@ On the basis of a golang image this testsystem needs a few other components to i
 
 # Test execution
 Important notice:
-This testsystem is designed to measure the performance of the different systems. Therefore, the standard configuration is used, which means that the standard IPs and Ports are used also. (Kafka: 127.0.0.1:9092) (RabbitMQ: amqp://rabbitmq:rabbitmq@localhost:5672/)
+This testsystem is designed to measure the performance of the different systems. Therefore, the standard configuration is used, which means that the standard IPs and Ports are used also. (Kafka: 127.0.0.1:9092) (RabbitMQ: amqp://rabbitmq:rabbitmq@localhost:5672/)  
 If you are using the provided docker-compose files within this repo nothing should be needed to reconfigure.
 
 First:
-Run at least one of the docker-compose files to start at least one bus system (either kafka or rabbitmq)
-Second, after 'go build':
-./kafka-test-repo (bus name) (message amount) (delay in ms before next message is send) (topic/queue name) (consumer/producer instnces (up to 6)) (path to inputfile for binary data information) (encoding method (json, avro, proto))
-Example RabbitMQ:
-./kafka-test-repo rabbit 1000 0 guru 0 testfiles/output-1Kibi-rand
-./kafka-test-repo rabbit 1000 2 guru 0 testfiles/output-1Kibi-rand avro
-./kafka-test-repo rabbit 1000 10 guru 0 testfiles/output-1Kibi-rand proto
+Run at least one of the docker-compose files to start at least one bus system (either kafka or rabbitmq)  
+Second, after 'go build':  
+./kafka-test-repo (amount of iterations) (bus name) (message amount) (delay in ms before next message is send) (topic/queue name) (consumer/producer instances (up to 6)) (path to inputfile for binary data information) (encoding method (json, avro, proto))
 
-Example Kafka:
-./kafka-test-repo kafka 1000 0 guru 0 testfiles/output-1Kibi-rand
-./kafka-test-repo kafka 1000 2 guru 0 testfiles/output-1Kibi-rand avro
-./kafka-test-repo kafka 1000 10 guru 0 testfiles/output-1Kibi-rand proto
+Example RabbitMQ:  
+./kafka-test-repo 1 rabbit 1000 0 guru 0 testfiles/output-1Kibi-rand-baseEnc  
+./kafka-test-repo 1 rabbit 1000 2 guru 0 testfiles/output-1Kibi-rand-baseEnc avro  
+./kafka-test-repo 1 rabbit 1000 10 guru 0 testfiles/output-1Kibi-rand-baseEnc proto  
+
+Example Kafka:  
+Synchronous call  
+./kafka-test-repo 1 synckafka 1000 0 guru 0 testfiles/output-1Kibi-rand-baseEnc  
+./kafka-test-repo 1 synckafka 1000 2 guru 0 testfiles/output-1Kibi-rand-baseEnc avro  
+./kafka-test-repo 1 synckafka 1000 10 guru 0 testfiles/output-1Kibi-rand-baseEnc proto  
+
+asynchronous call  
+./kafka-test-repo 1 asynckafka 1000 0 guru 0 testfiles/output-1Kibi-rand-baseEnc  
+./kafka-test-repo 1 asynckafka 1000 2 guru 0 testfiles/output-1Kibi-rand-baseEnc avro  
+./kafka-test-repo 1 asynckafka 1000 10 guru 0 testfiles/output-1Kibi-rand-baseEnc proto  
