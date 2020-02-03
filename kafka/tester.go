@@ -10,9 +10,9 @@ import (
 	"log"
 	"os/exec"
 
-	"../encoding"
-	"../structs"
-	"../output"
+	"mom-test/encoding"
+	"mom-test/structs"
+	"mom-test/output"
 
 	"github.com/Shopify/sarama"
 )

@@ -8,7 +8,7 @@ import (
 	"encoding/json"
 	"os"
 	"log"
-	"../structs"
+	"mom-test/structs"
 
 	"github.com/linkedin/goavro"
 )

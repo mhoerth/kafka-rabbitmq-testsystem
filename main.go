@@ -6,8 +6,8 @@ import (
 	"os"
 	"strconv"
 
-	"./kafka"
-	"./rabbit"
+	"mom-test/kafka"
+	"mom-test/rabbit"
 )
 
 func main() {

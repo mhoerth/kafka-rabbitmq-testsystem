@@ -9,9 +9,9 @@ import (
 	"time"
 	"os/exec"
 
-	"../encoding"
-	"../structs"
-	"../output"
+	"mom-test/encoding"
+	"mom-test/structs"
+	"mom-test/output"
 
 	// "encoding/base64"
 

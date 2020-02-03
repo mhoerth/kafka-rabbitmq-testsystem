@@ -20,7 +20,6 @@ This repository contains a testsystem for messagebus systems (currently Apache k
 
 # Requirements
 On the basis of  golang this testsystem needs a few other components to interact with the different bus systems and to use different encoding formats
-- golang version 1.10.4 or higher
 - docker client version 18.09.7 or higher
 - docker server (docker engine) version 19.03.5 or higher
 - [Sarama kafka client](https://github.com/Shopify/sarama) --> kafka interaction
@@ -39,20 +38,20 @@ If you are using the provided docker-compose files within this repo nothing shou
 First:
 Run at least one of the docker-compose files to start at least one bus system (either kafka or rabbitmq)  
 Second, after 'go build':  
-./kafka-test-repo (amount of iterations) (bus name) (message amount) (delay in ms before next message is send) (topic/queue name) (consumer/producer instances (up to 6)) (path to inputfile for binary data information) (encoding method (json, avro, proto))
+./mom-test (amount of iterations) (bus name) (message amount) (delay in ms before next message is send) (topic/queue name) (consumer/producer instances (up to 6)) (path to inputfile for binary data information) (encoding method (json, avro, proto))
 
 Example RabbitMQ:  
-./kafka-test-repo 1 rabbit 1000 0 guru 0 testfiles/output-1Kibi-rand-baseEnc  
-./kafka-test-repo 1 rabbit 1000 2 guru 0 testfiles/output-1Kibi-rand-baseEnc avro  
-./kafka-test-repo 1 rabbit 1000 10 guru 0 testfiles/output-1Kibi-rand-baseEnc proto  
+./mom-test 1 rabbit 1000 0 guru 0 testfiles/output-1Kibi-rand-baseEnc  
+./mom-test 1 rabbit 1000 2 guru 0 testfiles/output-1Kibi-rand-baseEnc avro  
+./mom-test 1 rabbit 1000 10 guru 0 testfiles/output-1Kibi-rand-baseEnc proto  
 
 Example Kafka:  
 Synchronous call  
-./kafka-test-repo 1 synckafka 1000 0 guru 0 testfiles/output-1Kibi-rand-baseEnc  
-./kafka-test-repo 1 synckafka 1000 2 guru 0 testfiles/output-1Kibi-rand-baseEnc avro  
-./kafka-test-repo 1 synckafka 1000 10 guru 0 testfiles/output-1Kibi-rand-baseEnc proto  
+./mom-test 1 synckafka 1000 0 guru 0 testfiles/output-1Kibi-rand-baseEnc  
+./mom-test 1 synckafka 1000 2 guru 0 testfiles/output-1Kibi-rand-baseEnc avro  
+./mom-test 1 synckafka 1000 10 guru 0 testfiles/output-1Kibi-rand-baseEnc proto  
 
 asynchronous call  
-./kafka-test-repo 1 asynckafka 1000 0 guru 0 testfiles/output-1Kibi-rand-baseEnc  
-./kafka-test-repo 1 asynckafka 1000 2 guru 0 testfiles/output-1Kibi-rand-baseEnc avro  
-./kafka-test-repo 1 asynckafka 1000 10 guru 0 testfiles/output-1Kibi-rand-baseEnc proto  
+./mom-test 1 asynckafka 1000 0 guru 0 testfiles/output-1Kibi-rand-baseEnc  
+./mom-test 1 asynckafka 1000 2 guru 0 testfiles/output-1Kibi-rand-baseEnc avro  
+./mom-test 1 asynckafka 1000 10 guru 0 testfiles/output-1Kibi-rand-baseEnc proto  

@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"time"
 	"log"
-	"../structs"
+	"mom-test/structs"
 
 	"github.com/golang/protobuf/proto"
 )

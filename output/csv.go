@@ -7,7 +7,7 @@ import (
 	"strings"
 	"strconv"
 	
-	"../structs"
+	"mom-test/structs"
 
 )
 
